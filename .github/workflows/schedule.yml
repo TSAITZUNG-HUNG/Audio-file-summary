@@ -105,7 +105,7 @@ jobs:
  
           # Google Drive
           GOOGLE_SERVICE_ACCOUNT_FILE: service_account.json
-          GOOGLE_DRIVE_FOLDER_ID:      ${{ secrets.GOOGLE_DRIVE_FOLDER_ID || 'root' }}
+          GOOGLE_DRIVE_FOLDER_IDS:     ${{ secrets.GOOGLE_DRIVE_FOLDER_IDS || 'root' }}
  
           # Notion
           NOTION_TOKEN:       ${{ secrets.NOTION_TOKEN }}
