@@ -123,6 +123,12 @@ jobs:
           SUMMARY_LANGUAGE: ${{ vars.SUMMARY_LANGUAGE || '繁體中文' }}
  
           PROCESSED_CACHE: processed_files.json
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}        
+          PYTHONUNBUFFERED: "1"                
+
+        run: |
+          echo "🕐 開始時間：$(date '+%Y-%m-%d %H:%M:%S')"
+          python -u audio_summary_bot.py 2>&1 | ...  # ← python 後面加 -u
  
         run: |
           echo "🕐 開始時間：$(date '+%Y-%m-%d %H:%M:%S')"
