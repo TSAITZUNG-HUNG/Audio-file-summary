@@ -289,21 +289,35 @@ class GroqSummaryGenerator:
         return f"{h}小時{m}分{s}秒" if h else f"{m}分{s}秒"
  
     def generate(self, transcript: str, duration: float, detected_lang: str) -> str:
-        prompt = SUMMARY_PROMPT.format(
-            lang=self.lang,
-            duration=self._fmt_duration(duration),
-            detected_lang=detected_lang,
-            transcript=transcript[:12000],
-        )
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            max_tokens=2000,
-            messages=[
-                {"role": "system", "content": "你是專業的錄音摘要整理師，用清晰結構呈現重點。"},
-                {"role": "user",   "content": prompt},
-            ],
-        )
-        return resp.choices[0].message.content
+        # 從 4000 字元開始嘗試，若 413（逐字稿太長）則自動縮短後重試
+        for max_chars in [4000, 2500, 1200]:
+            prompt = SUMMARY_PROMPT.format(
+                lang=self.lang,
+                duration=self._fmt_duration(duration),
+                detected_lang=detected_lang,
+                transcript=transcript[:max_chars],
+            )
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=2000,
+                    messages=[
+                        {"role": "system", "content": "你是專業的錄音摘要整理師，用清晰結構呈現重點。"},
+                        {"role": "user",   "content": prompt},
+                    ],
+                )
+                return resp.choices[0].message.content
+            except Exception as e:
+                err_str = str(e)
+                # 每日額度用完 → 直接往上拋，讓主程式停止
+                if "rate_limit_exceeded" in err_str and "tokens per day" in err_str:
+                    raise
+                # 單次請求太大（413）→ 縮短逐字稿後重試
+                if "413" in err_str or "Request too large" in err_str or "tokens per minute" in err_str.lower():
+                    print(f"      ⚠️  逐字稿太長（{max_chars} 字），縮短後重試...")
+                    continue
+                raise
+        raise RuntimeError("逐字稿超過長度上限，即使縮短後仍無法送出")
  
  
 # ════════════════════════════════════════════════════════════════════════════════
