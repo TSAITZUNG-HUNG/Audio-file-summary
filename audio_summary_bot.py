@@ -148,14 +148,24 @@ class GoogleDriveClient:
         return files
  
     def download_file(self, file_id: str, dest_path: str) -> str:
+        import time
         from googleapiclient.http import MediaIoBaseDownload
-        request = self.service.files().get_media(fileId=file_id)
-        with open(dest_path, "wb") as fh:
-            dl = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                _, done = dl.next_chunk()
-        return dest_path
+        for attempt in range(1, 4):          # 最多重試 3 次
+            try:
+                request = self.service.files().get_media(fileId=file_id)
+                with open(dest_path, "wb") as fh:
+                    dl = MediaIoBaseDownload(fh, request)
+                    done = False
+                    while not done:
+                        _, done = dl.next_chunk()
+                return dest_path
+            except Exception as e:
+                if attempt < 3:
+                    wait = attempt * 10      # 10秒、20秒後重試
+                    print(f"      ⚠️  下載失敗（第{attempt}次），{wait}秒後重試：{e}")
+                    time.sleep(wait)
+                else:
+                    raise                    # 3次都失敗才真正拋錯
  
     def get_folder_name(self, file_info: dict) -> str:
         try:
