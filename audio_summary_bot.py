@@ -126,7 +126,8 @@ class GoogleDriveClient:
         self.service = build("drive", "v3", credentials=creds)
  
     def list_all_audio_files(self, folder_id: str = "root") -> list:
-        """列出所有 .mp3 / .m4a 音檔"""
+        """列出所有 .mp3 / .m4a 音檔（含 500 錯誤自動重試）"""
+        import time
         query = (
             "(mimeType='audio/mpeg' or mimeType='audio/mp4' or "
             "mimeType='audio/x-m4a' or name contains '.mp3' or name contains '.m4a') "
@@ -134,13 +135,23 @@ class GoogleDriveClient:
         )
         if folder_id and folder_id.lower() != "root":
             query += f" and '{folder_id}' in parents"
- 
+
         files, page_token = [], None
         while True:
-            resp = self.service.files().list(
-                q=query, spaces="drive", pageToken=page_token, pageSize=100,
-                fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, parents)",
-            ).execute()
+            for attempt in range(1, 4):      # 最多重試 3 次
+                try:
+                    resp = self.service.files().list(
+                        q=query, spaces="drive", pageToken=page_token, pageSize=100,
+                        fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, parents)",
+                    ).execute()
+                    break
+                except Exception as e:
+                    if attempt < 3:
+                        wait = attempt * 15
+                        print(f"      ⚠️  Drive API 暫時錯誤（第{attempt}次），{wait}秒後重試：{e}")
+                        time.sleep(wait)
+                    else:
+                        raise
             files.extend(resp.get("files", []))
             page_token = resp.get("nextPageToken")
             if not page_token:
