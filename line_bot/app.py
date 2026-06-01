@@ -153,7 +153,7 @@ def _get_rich_text(props: dict, key: str) -> str:
     return "".join(r.get("plain_text", "") for r in rt)
  
  
-def fetch_all_summaries(max_pages: int = 200) -> list:
+def fetch_all_summaries(max_pages: int = 400) -> list:
     headers = _notion_headers()
     summaries = []
     has_more = True
@@ -211,25 +211,46 @@ def fetch_all_summaries(max_pages: int = 200) -> list:
 # AI 推薦引擎
 # ════════════════════════════════════════════════════════════════════════════════
  
+def _pre_filter(question: str, summaries: list, top_n: int = 50) -> list:
+    """
+    快速關鍵字預篩選（純 Python，不需要 API）。
+    計算問題字元與每個摘要（標題＋關鍵字）的重疊度，取前 top_n 個。
+    讓 400 個摘要縮減到 50 個再送給 Groq，避免 token 超限。
+    """
+    q_chars = set(question.replace(" ", "").replace("，", "").replace("。", ""))
+    scored = []
+    for s in summaries:
+        text = s["title"] + "".join(s["keywords"])
+        t_chars = set(text)
+        score = len(q_chars & t_chars)
+        scored.append((score, s))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    # 取前 top_n，但至少保留 20 個（避免問題很短時過度過濾）
+    result = [s for _, s in scored[:top_n]]
+    return result if result else summaries[:top_n]
+ 
+ 
 def recommend_transcripts(question: str, summaries: list) -> list:
+    # 先用關鍵字預篩選，從所有摘要中取最相關的 50 個
+    candidates = _pre_filter(question, summaries, top_n=50)
+    print(f"[AI] 從 {len(summaries)} 個摘要預篩出 {len(candidates)} 個候選")
+ 
     index_lines = []
-    for i, s in enumerate(summaries):
-        kw      = "、".join(s["keywords"][:5]) if s["keywords"] else "無"
-        dur     = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else "不明"
+    for i, s in enumerate(candidates):
+        kw  = "、".join(s["keywords"][:5]) if s["keywords"] else "無"
+        dur = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else "不明"
         index_lines.append(
             f"[{i+1}] 《{s['title']}》 關鍵字：{kw} 時長：{dur}"
         )
  
-    # 只取前 60 筆，避免超過 Groq TPM 限制
-    index_lines = index_lines[:60]
-    context = "\n\n".join(index_lines)
-    if len(context) > 6000:
-        context = context[:6000] + "\n...(以下省略)"
+    context = "\n".join(index_lines)
+    if len(context) > 5000:
+        context = context[:5000] + "\n...(以下省略)"
  
     prompt = f"""使用者的問題／需求：
 「{question}」
  
-以下是錄音檔資料庫（共 {len(summaries)} 個）：
+以下是與問題最相關的錄音檔候選（從 {len(summaries)} 個中預篩出 {len(candidates)} 個）：
  
 {context}
  
@@ -289,8 +310,8 @@ REASON5:推薦原因
  
     result = []
     for rank, idx in enumerate(indices[:5], 1):
-        if 0 <= idx < len(summaries):
-            item = summaries[idx].copy()
+        if 0 <= idx < len(candidates):
+            item = candidates[idx].copy()
             item["reason"] = reasons.get(rank, "")
             result.append(item)
  
@@ -509,3 +530,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 LINE Bot 啟動，監聽 port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+ 
