@@ -152,25 +152,6 @@ def _get_rich_text(props: dict, key: str) -> str:
     rt = props.get(key, {}).get("rich_text", [])
     return "".join(r.get("plain_text", "") for r in rt)
  
-def _fetch_page_summary(page_id: str) -> str:
-    try:
-        resp = req_lib.get(
-            f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=30",
-            headers=_notion_headers(), timeout=10
-        )
-        if resp.status_code != 200:
-            return ""
-        blocks = resp.json().get("results", [])
-        lines = []
-        for block in blocks[:25]:
-            btype = block.get("type", "")
-            rt = block.get(btype, {}).get("rich_text", [])
-            text = "".join(r.get("plain_text", "") for r in rt).strip()
-            if text:
-                lines.append(text)
-        return "\n".join(lines)[:1500]
-    except Exception:
-        return ""
  
 def fetch_all_summaries(max_pages: int = 200) -> list:
     headers = _notion_headers()
@@ -203,7 +184,7 @@ def fetch_all_summaries(max_pages: int = 200) -> list:
             page_id_clean = page["id"].replace("-", "")
             notion_url  = f"https://www.notion.so/{page_id_clean}"
  
-            summary_text = _fetch_page_summary(page["id"])
+            summary_text = ""
  
             if not title and not file_name:
                 continue
@@ -235,11 +216,8 @@ def recommend_transcripts(question: str, summaries: list) -> list:
     for i, s in enumerate(summaries):
         kw      = "、".join(s["keywords"][:5]) if s["keywords"] else "無"
         dur     = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else "不明"
-        snippet = s["summary_text"][:300].replace("\n", " ")
         index_lines.append(
-            f"[{i+1}] 《{s['title']}》\n"
-            f"  關鍵字：{kw}　時長：{dur}\n"
-            f"  內容摘要：{snippet}"
+            f"[{i+1}] 《{s['title']}》 關鍵字：{kw} 時長：{dur}"
         )
  
     # 只取前 60 筆，避免超過 Groq TPM 限制
