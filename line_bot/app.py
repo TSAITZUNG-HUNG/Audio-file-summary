@@ -50,14 +50,12 @@ groq_client   = Groq(api_key=GROQ_API_KEY)
 NOTION_TOKEN       = os.environ["NOTION_TOKEN"]
 NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
  
-# Google 服務帳號：支援 JSON 字串（Render 環境變數）或 JSON 檔案路徑
 GOOGLE_SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 GOOGLE_SA_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
  
 # ── In-memory Session ────────────────────────────────────────────────────────
-# 結構：{ user_id: {"state": "selecting", "items": [...], "ts": datetime} }
 _sessions: dict = {}
-SESSION_TTL_MIN = 10   # 10 分鐘沒回應就清除 session
+SESSION_TTL_MIN = 10
  
 def _get_session(user_id: str) -> dict:
     s = _sessions.get(user_id, {})
@@ -88,7 +86,6 @@ def _get_drive_service():
     from googleapiclient.discovery import build
  
     if GOOGLE_SA_JSON:
-        # 從環境變數取得 JSON（Render 部署方式）
         info = json.loads(GOOGLE_SA_JSON)
         creds = service_account.Credentials.from_service_account_info(
             info,
@@ -105,14 +102,8 @@ def _get_drive_service():
  
  
 def get_drive_share_link(file_name: str) -> str:
-    """
-    根據檔案名稱取得 Google Drive 共享連結（任何人可以用連結觀看）。
-    若已有共享連結則直接回傳，否則先設定 anyone-reader 權限。
-    """
     try:
         service = _get_drive_service()
- 
-        # 搜尋檔案
         safe_name = file_name.replace("'", "\\'")
         results = service.files().list(
             q=f"name='{safe_name}' and trashed=false",
@@ -127,7 +118,6 @@ def get_drive_share_link(file_name: str) -> str:
  
         file_id = files[0]["id"]
  
-        # 設定任何人皆可觀看（幂等，重複執行沒問題）
         try:
             service.permissions().create(
                 fileId=file_id,
@@ -135,12 +125,9 @@ def get_drive_share_link(file_name: str) -> str:
                 fields="id",
             ).execute()
         except Exception as perm_err:
-            print(f"[Drive] 設定權限警告（可能已設定）：{perm_err}")
+            print(f"[Drive] 設定權限警告：{perm_err}")
  
-        # 取得 webViewLink
-        info = service.files().get(
-            fileId=file_id, fields="webViewLink, name"
-        ).execute()
+        info = service.files().get(fileId=file_id, fields="webViewLink, name").execute()
         link = info.get("webViewLink", "")
         print(f"[Drive] 取得連結：{file_name} → {link}")
         return link
@@ -166,7 +153,6 @@ def _get_rich_text(props: dict, key: str) -> str:
     return "".join(r.get("plain_text", "") for r in rt)
  
 def _fetch_page_summary(page_id: str) -> str:
-    """取得頁面前幾個 block 的文字，作為摘要片段"""
     try:
         resp = req_lib.get(
             f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=30",
@@ -187,10 +173,6 @@ def _fetch_page_summary(page_id: str) -> str:
         return ""
  
 def fetch_all_summaries(max_pages: int = 200) -> list:
-    """
-    查詢 Notion 錄音檔摘要資料庫，回傳所有頁面的摘要資訊。
-    為節省 Groq token，每頁摘要最多取 1500 字。
-    """
     headers = _notion_headers()
     summaries = []
     has_more = True
@@ -211,7 +193,6 @@ def fetch_all_summaries(max_pages: int = 200) -> list:
         for page in data.get("results", []):
             props = page.get("properties", {})
  
-            # Title
             title_arr = props.get("Name", {}).get("title", [])
             title = "".join(t.get("plain_text", "") for t in title_arr)
  
@@ -222,7 +203,6 @@ def fetch_all_summaries(max_pages: int = 200) -> list:
             page_id_clean = page["id"].replace("-", "")
             notion_url  = f"https://www.notion.so/{page_id_clean}"
  
-            # 頁面摘要文字（非同步讀，這裡簡化為直接讀）
             summary_text = _fetch_page_summary(page["id"])
  
             if not title and not file_name:
@@ -251,26 +231,20 @@ def fetch_all_summaries(max_pages: int = 200) -> list:
 # ════════════════════════════════════════════════════════════════════════════════
  
 def recommend_transcripts(question: str, summaries: list) -> list:
-    """
-    用 Groq Llama 3.3 分析使用者問題，從所有摘要中挑出最相關的 5 個。
-    回傳 list of dict（含 reason 欄位）。
-    """
-    # 建立摘要索引（只送關鍵資訊給 AI，節省 token）
     index_lines = []
     for i, s in enumerate(summaries):
-        kw  = "、".join(s["keywords"][:5]) if s["keywords"] else "無"
-        dur = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else "不明"
-        snippet = s["summary_text"][:400].replace("\n", " ")
+        kw      = "、".join(s["keywords"][:5]) if s["keywords"] else "無"
+        dur     = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else "不明"
+        snippet = s["summary_text"][:300].replace("\n", " ")
         index_lines.append(
             f"[{i+1}] 《{s['title']}》\n"
             f"  關鍵字：{kw}　時長：{dur}\n"
             f"  內容摘要：{snippet}"
         )
  
-    # 只取最多 60 筆，避免超過 Groq TPM 限制
+    # 只取前 60 筆，避免超過 Groq TPM 限制
     index_lines = index_lines[:60]
     context = "\n\n".join(index_lines)
-
     if len(context) > 6000:
         context = context[:6000] + "\n...(以下省略)"
  
@@ -285,30 +259,37 @@ def recommend_transcripts(question: str, summaries: list) -> list:
  
 請嚴格按照以下格式輸出（不要有其他文字）：
 RECOMMEND:編號1,編號2,編號3,編號4,編號5
-REASON1:推薦原因（1-2句，直接說明對使用者的幫助）
+REASON1:推薦原因（1-2句，直接說明對使用者的幫助，不要重複標題）
 REASON2:推薦原因
 REASON3:推薦原因
 REASON4:推薦原因
 REASON5:推薦原因
 """
  
-    import time
-        for _attempt in range(3):
-            try:
-                resp = groq_client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    max_tokens=600,
-        temperature=0.3,
-        messages=[
-            {"role": "system", "content": "你是錄音檔推薦助手，根據使用者需求推薦最相關的內容。"},
-            {"role": "user",   "content": prompt},
-        ],
-    )
+    # 最多重試 3 次（429 rate limit 時等待後重試）
+    for attempt in range(3):
+        try:
+            resp = groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                max_tokens=600,
+                temperature=0.3,
+                messages=[
+                    {"role": "system", "content": "你是錄音檔推薦助手，根據使用者需求推薦最相關的內容。"},
+                    {"role": "user",   "content": prompt},
+                ],
+            )
+            break
+        except Exception as e:
+            err = str(e)
+            if "429" in err and attempt < 2:
+                print(f"[Groq] 429 rate limit，等待 30 秒後重試（第 {attempt+1} 次）")
+                time.sleep(30)
+                continue
+            raise
  
     content = resp.choices[0].message.content.strip()
     print(f"[Groq] 推薦結果：\n{content}")
  
-    # 解析輸出
     rec_match = re.search(r"RECOMMEND\s*[:：]\s*(.+)", content)
     if not rec_match:
         return []
@@ -321,7 +302,9 @@ REASON5:推薦原因
         m = re.search(rf"REASON{i}\s*[:：]\s*(.+)", content)
         if m:
             reason = m.group(1).strip()
-            reason = re.sub(r"^\[\d+\]\s*[^\s].*?(?:—\s*\d{4}/\d{2}/\d{2})?\s*", "", reason).strip()
+            # 移除 AI 有時加的「[N] 標題」前綴
+            reason = re.sub(r"^\[\d+\]\s*《[^》]*》\s*", "", reason).strip()
+            reason = re.sub(r"^\[\d+\]\s*\S+.*?(?:—\s*\d{4}/\d{2}/\d{2})?\s*", "", reason).strip()
             reasons[i] = reason
         else:
             reasons[i] = ""
@@ -347,9 +330,9 @@ def format_recommendations(items: list, question: str) -> str:
         f'🎙️ 根據您的需求：「{question[:50]}」\n我推薦以下 5 個錄音檔：\n',
     ]
     for i, item in enumerate(items):
-        dur  = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
-        kw   = " #".join(item["keywords"][:3]) if item["keywords"] else ""
-        kw   = f"#{kw}" if kw else ""
+        dur = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
+        kw  = " #".join(item["keywords"][:3]) if item["keywords"] else ""
+        kw  = f"#{kw}" if kw else ""
         lines.append(
             f"{_CIRCLE[i]} {item['title']}\n"
             f"💡 {item['reason']}\n"
@@ -365,7 +348,6 @@ def format_recommendations(items: list, question: str) -> str:
 # ════════════════════════════════════════════════════════════════════════════════
  
 def _bg_handle_question(user_id: str, question: str):
-    """背景執行：讀 Notion → AI 推薦 → push 結果"""
     try:
         summaries = fetch_all_summaries()
         if not summaries:
@@ -386,12 +368,10 @@ def _bg_handle_question(user_id: str, question: str):
  
  
 def _bg_handle_selection(user_id: str, idx: int, item: dict):
-    """背景執行：取 Drive 連結 → push"""
     try:
-        file_name = item.get("file_name", "")
-        link = get_drive_share_link(file_name) if file_name else ""
- 
-        title = item.get("title", file_name)
+        file_name  = item.get("file_name", "")
+        link       = get_drive_share_link(file_name) if file_name else ""
+        title      = item.get("title", file_name)
         notion_url = item.get("notion_url", "")
  
         if link:
