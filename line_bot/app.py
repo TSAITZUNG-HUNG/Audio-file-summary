@@ -23,7 +23,7 @@ from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
     ReplyMessageRequest, PushMessageRequest, TextMessage,
 )
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, JoinEvent, MemberJoinedEvent
 from groq import Groq
  
 try:
@@ -422,6 +422,14 @@ def health():
     return {"status": "ok", "sessions": len(_sessions)}, 200
  
  
+@handler.add(JoinEvent)
+def handle_join(event):
+    pass  # Bot 加入群組，靜默處理
+ 
+@handler.add(MemberJoinedEvent)
+def handle_member_joined(event):
+    pass  # 成員加入，靜默處理
+ 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     user_id     = event.source.user_id
@@ -479,4 +487,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 LINE Bot 啟動，監聽 port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
- 
