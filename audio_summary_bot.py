@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 🎙️ 錄音檔摘要機器人（完全免費版）
 =====================================
@@ -103,6 +104,13 @@ class ProcessedFilesTracker:
     def is_processed(self, file_id: str) -> bool:
         return file_id in self.data
  
+    def is_filename_processed(self, file_name: str) -> bool:
+        """檢查是否已有相同檔名的記錄（避免不同資料夾的同名檔案重複處理）"""
+        for record in self.data.values():
+            if record.get("file_name") == file_name:
+                return True
+        return False
+ 
     def mark_processed(self, file_id: str, metadata: dict):
         self.data[file_id] = {**metadata, "processed_at": datetime.now().isoformat()}
         self._save()
@@ -126,8 +134,7 @@ class GoogleDriveClient:
         self.service = build("drive", "v3", credentials=creds)
  
     def list_all_audio_files(self, folder_id: str = "root") -> list:
-        """列出所有 .mp3 / .m4a 音檔（含 500 錯誤自動重試）"""
-        import time
+        """列出所有 .mp3 / .m4a 音檔"""
         query = (
             "(mimeType='audio/mpeg' or mimeType='audio/mp4' or "
             "mimeType='audio/x-m4a' or name contains '.mp3' or name contains '.m4a') "
@@ -135,23 +142,13 @@ class GoogleDriveClient:
         )
         if folder_id and folder_id.lower() != "root":
             query += f" and '{folder_id}' in parents"
-
+ 
         files, page_token = [], None
         while True:
-            for attempt in range(1, 4):      # 最多重試 3 次
-                try:
-                    resp = self.service.files().list(
-                        q=query, spaces="drive", pageToken=page_token, pageSize=100,
-                        fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, parents)",
-                    ).execute()
-                    break
-                except Exception as e:
-                    if attempt < 3:
-                        wait = attempt * 15
-                        print(f"      ⚠️  Drive API 暫時錯誤（第{attempt}次），{wait}秒後重試：{e}")
-                        time.sleep(wait)
-                    else:
-                        raise
+            resp = self.service.files().list(
+                q=query, spaces="drive", pageToken=page_token, pageSize=100,
+                fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, parents)",
+            ).execute()
             files.extend(resp.get("files", []))
             page_token = resp.get("nextPageToken")
             if not page_token:
@@ -723,7 +720,9 @@ def main():
                 all_files.append(f)
         print(f"      → 找到 {len(found)} 個音檔")
  
-    new_files = [f for f in all_files if not tracker.is_processed(f["id"])]
+    new_files = [f for f in all_files
+                 if not tracker.is_processed(f["id"])
+                 and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
  
     if not new_files:
@@ -764,4 +763,3 @@ def main():
  
 if __name__ == "__main__":
     main()
- 
