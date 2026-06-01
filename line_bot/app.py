@@ -267,11 +267,12 @@ def recommend_transcripts(question: str, summaries: list) -> list:
             f"  內容摘要：{snippet}"
         )
  
+    # 只取最多 60 筆，避免超過 Groq TPM 限制
+    index_lines = index_lines[:60]
     context = "\n\n".join(index_lines)
- 
-    # 若索引太長，截斷（Groq free TPM 限制）
-    if len(context) > 7000:
-        context = context[:7000] + "\n...(以下省略)"
+
+    if len(context) > 6000:
+        context = context[:6000] + "\n...(以下省略)"
  
     prompt = f"""使用者的問題／需求：
 「{question}」
@@ -291,9 +292,12 @@ REASON4:推薦原因
 REASON5:推薦原因
 """
  
-    resp = groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        max_tokens=600,
+    import time
+        for _attempt in range(3):
+            try:
+                resp = groq_client.chat.completions.create(
+                    model=GROQ_MODEL,
+                    max_tokens=600,
         temperature=0.3,
         messages=[
             {"role": "system", "content": "你是錄音檔推薦助手，根據使用者需求推薦最相關的內容。"},
