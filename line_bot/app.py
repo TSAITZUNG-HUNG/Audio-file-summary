@@ -315,7 +315,12 @@ REASON5:推薦原因
     reasons = {}
     for i in range(1, 6):
         m = re.search(rf"REASON{i}\s*[:：]\s*(.+)", content)
-        reasons[i] = m.group(1).strip() if m else ""
+        if m:
+            reason = m.group(1).strip()
+            reason = re.sub(r"^\[\d+\]\s*[^\s].*?(?:—\s*\d{4}/\d{2}/\d{2})?\s*", "", reason).strip()
+            reasons[i] = reason
+        else:
+            reasons[i] = ""
  
     result = []
     for rank, idx in enumerate(indices[:5], 1):
