@@ -329,27 +329,27 @@ def format_recommendations(items: list, question: str) -> str:
 # 背景任務處理
 # ════════════════════════════════════════════════════════════════════════════════
  
-def _bg_handle_question(user_id: str, question: str):
+def _bg_handle_question(user_id: str, push_target: str, question: str):
     try:
         summaries = fetch_all_summaries()
         if not summaries:
-            _push(user_id, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
+            _push(push_target, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
             return
  
         items = recommend_transcripts(question, summaries)
         if not items:
-            _push(user_id, "😅 找不到合適的推薦，請換個方式描述您的需求，例如：\n「我想學習如何開發客戶」\n「推薦我關於時間管理的錄音」")
+            _push(push_target, "😅 找不到合適的推薦，請換個方式描述您的需求，例如：\n「我想學習如何開發客戶」\n「推薦我關於時間管理的錄音」")
             return
  
-        _set_session(user_id, {"state": "selecting", "items": items, "question": question})
-        _push(user_id, format_recommendations(items, question))
+        _set_session(user_id, {"state": "selecting", "items": items, "question": question, "push_target": push_target})
+        _push(push_target, format_recommendations(items, question))
  
     except Exception as e:
         print(f"[BG] 問題處理錯誤：{e}")
-        _push(user_id, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
+        _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
  
  
-def _bg_handle_selection(user_id: str, idx: int, item: dict):
+def _bg_handle_selection(push_target: str, idx: int, item: dict):
     try:
         file_name  = item.get("file_name", "")
         link       = get_drive_share_link(file_name) if file_name else ""
@@ -369,11 +369,11 @@ def _bg_handle_selection(user_id: str, idx: int, item: dict):
                 f"📖 Notion 完整摘要：\n{notion_url}"
             )
  
-        _push(user_id, msg)
+        _push(push_target, msg)
  
     except Exception as e:
         print(f"[BG] 選擇處理錯誤：{e}")
-        _push(user_id, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
+        _push(push_target, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
  
  
 # ════════════════════════════════════════════════════════════════════════════════
@@ -436,12 +436,23 @@ def handle_message(event):
     text        = event.message.text.strip()
     reply_token = event.reply_token
  
+    # 判斷來源：群組回覆給群組，個人回覆給個人
+    source_type = event.source.type
+    if source_type == "group":
+        push_target = event.source.group_id
+    elif source_type == "room":
+        push_target = event.source.room_id
+    else:
+        push_target = user_id
+ 
     session = _get_session(user_id)
  
     # ── 使用者選擇推薦編號 ──────────────────────────────────────────────────
     if session.get("state") == "selecting" and re.match(r"^[1-5]$", text):
         idx   = int(text) - 1
         items = session.get("items", [])
+        # 取回原本的 push_target（可能是群組）
+        saved_target = session.get("push_target", push_target)
  
         if idx >= len(items):
             _reply(reply_token, "請輸入 1～5 之間的數字選擇錄音檔。")
@@ -450,7 +461,7 @@ def handle_message(event):
         item = items[idx]
         _reply(reply_token, f"🔍 正在取得「{item['title'][:30]}」的連結，請稍候...")
         _clear_session(user_id)
-        threading.Thread(target=_bg_handle_selection, args=(user_id, idx, item), daemon=True).start()
+        threading.Thread(target=_bg_handle_selection, args=(saved_target, idx, item), daemon=True).start()
         return
  
     # ── 特殊指令 ─────────────────────────────────────────────────────────────
@@ -476,7 +487,7 @@ def handle_message(event):
     # ── 新問題 ────────────────────────────────────────────────────────────────
     _clear_session(user_id)
     _reply(reply_token, "🔍 正在為您分析推薦中，\n通常需要 15～30 秒，請稍候...")
-    threading.Thread(target=_bg_handle_question, args=(user_id, text), daemon=True).start()
+    threading.Thread(target=_bg_handle_question, args=(user_id, push_target, text), daemon=True).start()
  
  
 # ════════════════════════════════════════════════════════════════════════════════
