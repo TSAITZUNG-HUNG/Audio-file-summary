@@ -612,7 +612,7 @@ def process_one_file(
  
         keywords    = extract_keywords(summary)
         today       = datetime.now().strftime("%Y/%m/%d")
-        title       = f"{Path(file_name).stem} — {today}"
+        title       = Path(file_name).stem
         proc_date   = datetime.now().strftime("%Y-%m-%d %H:%M")
  
         print(f"      📓 建立 Notion 頁面...")
