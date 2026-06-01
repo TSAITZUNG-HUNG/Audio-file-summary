@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 🎙️ 錄音檔摘要機器人（完全免費版）
@@ -286,17 +287,31 @@ SUMMARY_PROMPT = """\
  
 class GroqSummaryGenerator:
     """
-    使用 Groq 免費 API 生成摘要
-    - 申請：https://console.groq.com/keys（完全免費）
-    - 每日免費額度：約 1,000,000 tokens（一般使用遠超足夠）
-    - 模型：llama-3.3-70b-versatile（性能媲美 GPT-4）
+    使用 Groq 免費 API 生成摘要，支援多個 API Key 輪流使用。
+    GROQ_API_KEY 可填多個 key，用逗號分隔：key1,key2,key3
+    某個 key 每日額度用完時自動切換到下一個。
     """
  
     def __init__(self, api_key: str, model: str, summary_language: str = "繁體中文"):
         from groq import Groq
-        self.client = Groq(api_key=api_key)
+        # 支援多個 key（逗號分隔）
+        self.api_keys = [k.strip() for k in api_key.split(",") if k.strip()]
+        self.key_index = 0
+        self.client = Groq(api_key=self.api_keys[0])
         self.model  = model
         self.lang   = summary_language
+        if len(self.api_keys) > 1:
+            print(f"   🔑 載入 {len(self.api_keys)} 個 Groq API Key，額度用完時自動切換")
+ 
+    def _next_key(self) -> bool:
+        """切換到下一個 API Key，回傳是否還有可用的 key"""
+        from groq import Groq
+        self.key_index += 1
+        if self.key_index >= len(self.api_keys):
+            return False
+        self.client = Groq(api_key=self.api_keys[self.key_index])
+        print(f"      🔄 切換到第 {self.key_index + 1} 個 API Key")
+        return True
  
     @staticmethod
     def _fmt_duration(seconds: float) -> str:
@@ -327,9 +342,12 @@ class GroqSummaryGenerator:
                 return resp.choices[0].message.content
             except Exception as e:
                 err_str = str(e)
-                # 每日額度用完 → 直接往上拋，讓主程式停止
+                # 每日額度用完 → 嘗試切換到下一個 key
                 if "rate_limit_exceeded" in err_str and "tokens per day" in err_str:
-                    raise
+                    print(f"      ⏸️  第 {self.key_index + 1} 個 Key 每日額度已用完")
+                    if self._next_key():
+                        continue  # 用新 key 重試
+                    raise SystemExit("GROQ_DAILY_LIMIT")  # 所有 key 都用完
                 # 單次請求太大（413）→ 縮短逐字稿後重試
                 if "413" in err_str or "Request too large" in err_str or "tokens per minute" in err_str.lower():
                     print(f"      ⚠️  逐字稿太長（{max_chars} 字），縮短後重試...")
