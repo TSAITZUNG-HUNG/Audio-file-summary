@@ -15,7 +15,7 @@ name: 🎙️ 錄音檔摘要機器人（免費版）
 
 on:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       force_reprocess:
