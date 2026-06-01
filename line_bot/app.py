@@ -432,15 +432,19 @@ def _push(user_id: str, text: str):
 # Webhook 路由
 # ════════════════════════════════════════════════════════════════════════════════
  
-@app.route("/webhook", methods=["POST"])
+@app.route("/webhook", methods=["GET", "POST"])
 def webhook():
+    if request.method == "GET":
+        return "OK", 200
     signature = request.headers.get("X-Line-Signature", "")
     body = request.get_data(as_text=True)
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
-    return "OK"
+    except Exception as e:
+        print(f"[Webhook] 處理錯誤：{e}")
+    return "OK", 200
  
 @app.route("/health", methods=["GET"])
 def health():
