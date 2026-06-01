@@ -215,7 +215,7 @@ def _pre_filter(question: str, summaries: list, top_n: int = 50) -> list:
     """
     快速關鍵字預篩選（純 Python，不需要 API）。
     計算問題字元與每個摘要（標題＋關鍵字）的重疊度，取前 top_n 個。
-    讓 400 個摘要縮減到 50 個再送給 Groq，避免 token 超限。
+    同時去除重複標題（只保留分數最高的那個），避免 AI 推薦同名錄音檔。
     """
     q_chars = set(question.replace(" ", "").replace("，", "").replace("。", ""))
     scored = []
@@ -225,9 +225,19 @@ def _pre_filter(question: str, summaries: list, top_n: int = 50) -> list:
         score = len(q_chars & t_chars)
         scored.append((score, s))
     scored.sort(key=lambda x: x[0], reverse=True)
-    # 取前 top_n，但至少保留 20 個（避免問題很短時過度過濾）
-    result = [s for _, s in scored[:top_n]]
-    return result if result else summaries[:top_n]
+ 
+    # 去除重複標題（移除日期後的標題相同就算重複，保留分數最高的）
+    seen_titles = set()
+    deduped = []
+    for score, s in scored:
+        base_title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+        if base_title not in seen_titles:
+            seen_titles.add(base_title)
+            deduped.append(s)
+        if len(deduped) >= top_n:
+            break
+ 
+    return deduped if deduped else summaries[:top_n]
  
  
 def recommend_transcripts(question: str, summaries: list) -> list:
@@ -530,4 +540,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 LINE Bot 啟動，監聽 port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
- 
