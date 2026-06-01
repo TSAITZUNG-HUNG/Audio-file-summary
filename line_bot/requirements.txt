@@ -1,0 +1,25 @@
+# 錄音檔摘要機器人（免費版）— 依賴套件
+# 安裝：pip install -r requirements.txt
+# 費用：$0，所有套件完全免費
+ 
+# ── 環境變數 ────────────────────────────────────────────────
+python-dotenv>=1.0.0
+ 
+# ── 語音轉文字：faster-whisper（本地執行，免費）──────────────
+# 比 OpenAI 官方 Python 套件快 2~4 倍
+# 第一次使用時自動下載模型（small ≈ 150MB）
+faster-whisper>=1.0.0
+ 
+# ── AI 摘要生成：Groq API（免費）───────────────────────────
+# 申請免費金鑰：https://console.groq.com/keys
+# 每日免費額度超過一般使用量，速度極快
+groq>=0.9.0
+ 
+# ── Google Drive API（免費）────────────────────────────────
+google-auth>=2.29.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.131.0
+ 
+# ── HTTP 請求（Notion API / GitHub API）────────────────────
+requests>=2.32.0
+ 
