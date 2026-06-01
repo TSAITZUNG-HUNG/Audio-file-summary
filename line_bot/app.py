@@ -445,6 +445,17 @@ def handle_message(event):
     else:
         push_target = user_id
  
+    # ── 群組訊息：只有 @ 提及才回應 ──────────────────────────────────────────
+    if source_type == "group" or source_type == "room":
+        if not text.startswith("@"):
+            return  # 沒有 @ 就忽略
+        # 去掉「@機器人名稱 」前綴，取後面的實際問題
+        parts = text.split(" ", 1)
+        text = parts[1].strip() if len(parts) > 1 else ""
+        if not text:
+            _reply(reply_token, "請在 @ 後面輸入您的問題，例如：\n@錄音檔推薦機器人 推薦我分享產品的錄音")
+            return
+ 
     session = _get_session(user_id)
  
     # ── 使用者選擇推薦編號 ──────────────────────────────────────────────────
