@@ -311,9 +311,13 @@ def format_recommendations(items: list, question: str) -> str:
         dur = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
         kw  = " #".join(item["keywords"][:3]) if item["keywords"] else ""
         kw  = f"#{kw}" if kw else ""
+        # 移除標題末尾的日期「 — 2026/05/31」
+        title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
+        # 移除推薦原因裡的「錄音檔[N]」前綴
+        reason = re.sub(r"^錄音檔\[\d+\]\s*", "", item["reason"]).strip()
         lines.append(
-            f"{_CIRCLE[i]} {item['title']}\n"
-            f"💡 {item['reason']}\n"
+            f"{_CIRCLE[i]} {title}\n"
+            f"💡 {reason}\n"
             f"⏱ {dur}　{kw}\n"
             f"📖 摘要：{item['notion_url']}\n"
         )
@@ -475,3 +479,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 LINE Bot 啟動，監聽 port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+ 
