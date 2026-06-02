@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 🎙️ 錄音檔摘要機器人（完全免費版）
@@ -716,6 +715,49 @@ def main():
     summarizer  = GroqSummaryGenerator(cfg.GROQ_API_KEY, cfg.GROQ_MODEL, cfg.SUMMARY_LANGUAGE)
     notion      = NotionClient(cfg.NOTION_TOKEN, cfg.NOTION_DATABASE_ID)
     tracker     = ProcessedFilesTracker(cfg.PROCESSED_CACHE)
+ 
+    # ── 從 Notion 同步已處理的檔案名稱（防止快取遺失時重複處理）────────────
+    print("🔄 從 Notion 同步已處理記錄...")
+    try:
+        import requests as _req
+        _headers = {
+            "Authorization": f"Bearer {cfg.NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+        }
+        _has_more, _cursor = True, None
+        _notion_filenames = set()
+        while _has_more:
+            _body = {"page_size": 100}
+            if _cursor:
+                _body["start_cursor"] = _cursor
+            _resp = _req.post(
+                f"https://api.notion.com/v1/databases/{cfg.NOTION_DATABASE_ID}/query",
+                headers=_headers, json=_body, timeout=15
+            )
+            if _resp.status_code == 200:
+                _data = _resp.json()
+                for _page in _data.get("results", []):
+                    _rt = _page.get("properties", {}).get("檔案名稱", {}).get("rich_text", [])
+                    _fname = "".join(r.get("plain_text", "") for r in _rt)
+                    if _fname:
+                        _notion_filenames.add(_fname)
+                _has_more = _data.get("has_more", False)
+                _cursor   = _data.get("next_cursor")
+            else:
+                break
+        # 把 Notion 已有的檔案名稱加入 tracker（用假 ID 標記為已處理）
+        _synced = 0
+        for _fname in _notion_filenames:
+            _fake_id = f"notion_sync_{_fname}"
+            if not tracker.is_processed(_fake_id) and not tracker.is_filename_processed(_fname):
+                tracker.data[_fake_id] = {"file_name": _fname, "processed_at": "synced_from_notion"}
+                _synced += 1
+        if _synced:
+            tracker._save()
+        print(f"   ✓ Notion 已有 {len(_notion_filenames)} 個檔案，同步 {_synced} 筆新記錄")
+    except Exception as _e:
+        print(f"   ⚠️  Notion 同步失敗（不影響執行）：{_e}")
  
     github: Optional[GitHubSyncer] = None
     if cfg.GITHUB_TOKEN and cfg.GITHUB_REPO:
