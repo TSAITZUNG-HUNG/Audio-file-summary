@@ -360,8 +360,8 @@ def format_recommendations(items: list, question: str) -> str:
 # 背景任務處理
 # ════════════════════════════════════════════════════════════════════════════════
  
-def _bg_handle_list(push_target: str, keyword: str = ""):
-    """背景執行：列出所有錄音檔名稱，支援關鍵字篩選"""
+def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
+    """背景執行：列出所有錄音檔名稱，支援關鍵字篩選，並儲存到 session 供後續選擇"""
     try:
         summaries = fetch_all_summaries()
         if not summaries:
@@ -380,7 +380,14 @@ def _bg_handle_list(push_target: str, keyword: str = ""):
             _push(push_target, f"找不到含有「{keyword}」的錄音檔。")
             return
  
-        # 每則訊息最多顯示 30 個，避免太長
+        # 儲存到 session，讓使用者可以輸入編號取得連結
+        _set_session(user_id, {
+            "state": "listing",
+            "items": filtered,
+            "push_target": push_target,
+        })
+ 
+        # 每則訊息最多顯示 30 個
         chunk_size = 30
         total_msgs = (len(filtered) + chunk_size - 1) // chunk_size
  
@@ -402,7 +409,9 @@ def _bg_handle_list(push_target: str, keyword: str = ""):
                 lines.append(f"\n（第 {page_num}/{total_msgs} 頁）")
  
             _push(push_target, "\n".join(lines))
-            time.sleep(0.5)  # 避免訊息順序亂掉
+            time.sleep(0.5)
+ 
+        _push(push_target, "💡 輸入編號即可取得該錄音檔的 Google Drive 連結！")
  
     except Exception as e:
         print(f"[BG] 列表錯誤：{e}")
@@ -538,11 +547,10 @@ def handle_message(event):
  
     session = _get_session(user_id)
  
-    # ── 使用者選擇推薦編號 ──────────────────────────────────────────────────
+    # ── 使用者選擇推薦編號（1-5）──────────────────────────────────────────
     if session.get("state") == "selecting" and re.match(r"^[1-5]$", text):
         idx   = int(text) - 1
         items = session.get("items", [])
-        # 取回原本的 push_target（可能是群組）
         saved_target = session.get("push_target", push_target)
  
         if idx >= len(items):
@@ -551,6 +559,23 @@ def handle_message(event):
  
         item = items[idx]
         _reply(reply_token, f"🔍 正在取得「{item['title'][:30]}」的連結，請稍候...")
+        _clear_session(user_id)
+        threading.Thread(target=_bg_handle_selection, args=(saved_target, idx, item), daemon=True).start()
+        return
+ 
+    # ── 使用者從 /list 輸入編號取得 Drive 連結 ────────────────────────────
+    if session.get("state") == "listing" and re.match(r"^\d+$", text):
+        idx   = int(text) - 1
+        items = session.get("items", [])
+        saved_target = session.get("push_target", push_target)
+ 
+        if idx < 0 or idx >= len(items):
+            _reply(reply_token, f"請輸入 1～{len(items)} 之間的數字。")
+            return
+ 
+        item = items[idx]
+        title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
+        _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
         _clear_session(user_id)
         threading.Thread(target=_bg_handle_selection, args=(saved_target, idx, item), daemon=True).start()
         return
@@ -581,7 +606,7 @@ def handle_message(event):
     if text.startswith("/list"):
         _reply(reply_token, "📋 正在載入錄音檔清單...")
         keyword = text[5:].strip()
-        threading.Thread(target=_bg_handle_list, args=(push_target, keyword), daemon=True).start()
+        threading.Thread(target=_bg_handle_list, args=(user_id, push_target, keyword), daemon=True).start()
         return
  
     # ── 新問題 ────────────────────────────────────────────────────────────────
