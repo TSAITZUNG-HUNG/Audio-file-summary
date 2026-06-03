@@ -360,6 +360,55 @@ def format_recommendations(items: list, question: str) -> str:
 # 背景任務處理
 # ════════════════════════════════════════════════════════════════════════════════
  
+def _bg_handle_list(push_target: str, keyword: str = ""):
+    """背景執行：列出所有錄音檔名稱，支援關鍵字篩選"""
+    try:
+        summaries = fetch_all_summaries()
+        if not summaries:
+            _push(push_target, "⚠️ 目前資料庫沒有錄音檔摘要。")
+            return
+ 
+        # 關鍵字篩選
+        if keyword:
+            filtered = [s for s in summaries if keyword in s["title"] or keyword in "".join(s["keywords"])]
+            header = f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個："
+        else:
+            filtered = summaries
+            header = f"📋 共 {len(filtered)} 個錄音檔："
+ 
+        if not filtered:
+            _push(push_target, f"找不到含有「{keyword}」的錄音檔。")
+            return
+ 
+        # 每則訊息最多顯示 30 個，避免太長
+        chunk_size = 30
+        total_msgs = (len(filtered) + chunk_size - 1) // chunk_size
+ 
+        for i in range(0, len(filtered), chunk_size):
+            chunk = filtered[i:i + chunk_size]
+            page_num = i // chunk_size + 1
+            lines = []
+ 
+            if i == 0:
+                lines.append(header)
+                lines.append("")
+ 
+            for j, s in enumerate(chunk, i + 1):
+                title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+                dur = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
+                lines.append(f"{j}. {title}　{dur}")
+ 
+            if total_msgs > 1:
+                lines.append(f"\n（第 {page_num}/{total_msgs} 頁）")
+ 
+            _push(push_target, "\n".join(lines))
+            time.sleep(0.5)  # 避免訊息順序亂掉
+ 
+    except Exception as e:
+        print(f"[BG] 列表錯誤：{e}")
+        _push(push_target, f"❌ 載入清單時發生錯誤：{str(e)[:100]}")
+ 
+ 
 def _bg_handle_question(user_id: str, push_target: str, question: str):
     try:
         summaries = fetch_all_summaries()
@@ -522,8 +571,17 @@ def handle_message(event):
             "・「我想學如何管理時間」\n\n"
             "AI 會從資料庫中推薦 5 個最適合的錄音檔，\n"
             "回覆數字 1～5 即可取得播放連結。\n\n"
-            "輸入「取消」可重新開始。"
+            "📋 指令：\n"
+            "・/list — 列出所有錄音檔\n"
+            "・/list 關鍵字 — 搜尋錄音檔名稱\n"
+            "・取消 — 重新開始"
         )
+        return
+ 
+    if text.startswith("/list"):
+        _reply(reply_token, "📋 正在載入錄音檔清單...")
+        keyword = text[5:].strip()
+        threading.Thread(target=_bg_handle_list, args=(push_target, keyword), daemon=True).start()
         return
  
     # ── 新問題 ────────────────────────────────────────────────────────────────
