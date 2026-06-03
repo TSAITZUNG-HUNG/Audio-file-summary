@@ -439,10 +439,11 @@ def _bg_handle_question(user_id: str, push_target: str, question: str):
  
  
 def _bg_handle_selection(push_target: str, idx: int, item: dict):
+    """取得單一檔案的 Drive 連結"""
     try:
         file_name  = item.get("file_name", "")
         link       = get_drive_share_link(file_name) if file_name else ""
-        title      = item.get("title", file_name)
+        title      = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item.get("title", file_name)).strip()
         notion_url = item.get("notion_url", "")
  
         if link:
@@ -462,6 +463,39 @@ def _bg_handle_selection(push_target: str, idx: int, item: dict):
  
     except Exception as e:
         print(f"[BG] 選擇處理錯誤：{e}")
+        _push(push_target, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
+ 
+ 
+def _bg_handle_multi_selection(push_target: str, indices: list, items: list):
+    """取得多個檔案的 Drive 連結"""
+    try:
+        _push(push_target, f"🔍 正在取得 {len(indices)} 個檔案的連結，請稍候...")
+        for i, idx in enumerate(indices, 1):
+            if idx < 0 or idx >= len(items):
+                continue
+            item = items[idx]
+            file_name  = item.get("file_name", "")
+            link       = get_drive_share_link(file_name) if file_name else ""
+            title      = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item.get("title", file_name)).strip()
+            notion_url = item.get("notion_url", "")
+ 
+            if link:
+                msg = (
+                    f"🎙️ [{i}/{len(indices)}] {title}\n\n"
+                    f"📥 Google Drive：\n{link}\n\n"
+                    f"📖 Notion 摘要：\n{notion_url}"
+                )
+            else:
+                msg = (
+                    f"🎙️ [{i}/{len(indices)}] {title}\n\n"
+                    f"⚠️ 無法取得 Drive 連結\n\n"
+                    f"📖 Notion 摘要：\n{notion_url}"
+                )
+            _push(push_target, msg)
+            time.sleep(0.5)
+ 
+    except Exception as e:
+        print(f"[BG] 多選處理錯誤：{e}")
         _push(push_target, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
  
  
@@ -547,37 +581,46 @@ def handle_message(event):
  
     session = _get_session(user_id)
  
-    # ── 使用者選擇推薦編號（1-5）──────────────────────────────────────────
-    if session.get("state") == "selecting" and re.match(r"^[1-5]$", text):
-        idx   = int(text) - 1
+    # ── 使用者選擇推薦編號（1-5，支援多選）────────────────────────────────
+    if session.get("state") == "selecting" and re.search(r"[1-5]", text):
+        nums = re.findall(r"[1-5]", text)
         items = session.get("items", [])
+        indices = list(dict.fromkeys([int(n) - 1 for n in nums]))  # 去重並保持順序
  
-        if idx >= len(items):
+        if not indices:
             _reply(reply_token, "請輸入 1～5 之間的數字選擇錄音檔。")
             return
  
-        item = items[idx]
-        _reply(reply_token, f"🔍 正在取得「{item['title'][:30]}」的連結，請稍候...")
         _clear_session(user_id)
-        # 使用當前訊息的 push_target（回覆到使用者當前所在的群組）
-        threading.Thread(target=_bg_handle_selection, args=(push_target, idx, item), daemon=True).start()
+        if len(indices) == 1:
+            item = items[indices[0]]
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
+            _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
+            threading.Thread(target=_bg_handle_selection, args=(push_target, indices[0], item), daemon=True).start()
+        else:
+            _reply(reply_token, f"🔍 正在取得 {len(indices)} 個檔案的連結，請稍候...")
+            threading.Thread(target=_bg_handle_multi_selection, args=(push_target, indices, items), daemon=True).start()
         return
  
-    # ── 使用者從 /list 輸入編號取得 Drive 連結 ────────────────────────────
-    if session.get("state") == "listing" and re.match(r"^\d+$", text):
-        idx   = int(text) - 1
+    # ── 使用者從 /list 輸入編號取得 Drive 連結（支援多選）────────────────
+    if session.get("state") == "listing" and re.search(r"\d", text):
+        nums = re.findall(r"\d+", text)
         items = session.get("items", [])
+        indices = [int(n) - 1 for n in nums if 1 <= int(n) <= len(items)]
  
-        if idx < 0 or idx >= len(items):
+        if not indices:
             _reply(reply_token, f"請輸入 1～{len(items)} 之間的數字。")
             return
  
-        item = items[idx]
-        title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
-        _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
         _clear_session(user_id)
-        # 使用當前訊息的 push_target（不用 session 存的舊群組）
-        threading.Thread(target=_bg_handle_selection, args=(push_target, idx, item), daemon=True).start()
+        if len(indices) == 1:
+            item = items[indices[0]]
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
+            _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
+            threading.Thread(target=_bg_handle_selection, args=(push_target, indices[0], item), daemon=True).start()
+        else:
+            _reply(reply_token, f"🔍 正在取得 {len(indices)} 個檔案的連結，請稍候...")
+            threading.Thread(target=_bg_handle_multi_selection, args=(push_target, indices, items), daemon=True).start()
         return
  
     # ── 特殊指令 ─────────────────────────────────────────────────────────────
