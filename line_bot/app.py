@@ -551,7 +551,6 @@ def handle_message(event):
     if session.get("state") == "selecting" and re.match(r"^[1-5]$", text):
         idx   = int(text) - 1
         items = session.get("items", [])
-        saved_target = session.get("push_target", push_target)
  
         if idx >= len(items):
             _reply(reply_token, "請輸入 1～5 之間的數字選擇錄音檔。")
@@ -560,14 +559,14 @@ def handle_message(event):
         item = items[idx]
         _reply(reply_token, f"🔍 正在取得「{item['title'][:30]}」的連結，請稍候...")
         _clear_session(user_id)
-        threading.Thread(target=_bg_handle_selection, args=(saved_target, idx, item), daemon=True).start()
+        # 使用當前訊息的 push_target（回覆到使用者當前所在的群組）
+        threading.Thread(target=_bg_handle_selection, args=(push_target, idx, item), daemon=True).start()
         return
  
     # ── 使用者從 /list 輸入編號取得 Drive 連結 ────────────────────────────
     if session.get("state") == "listing" and re.match(r"^\d+$", text):
         idx   = int(text) - 1
         items = session.get("items", [])
-        saved_target = session.get("push_target", push_target)
  
         if idx < 0 or idx >= len(items):
             _reply(reply_token, f"請輸入 1～{len(items)} 之間的數字。")
@@ -577,7 +576,8 @@ def handle_message(event):
         title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
         _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
         _clear_session(user_id)
-        threading.Thread(target=_bg_handle_selection, args=(saved_target, idx, item), daemon=True).start()
+        # 使用當前訊息的 push_target（不用 session 存的舊群組）
+        threading.Thread(target=_bg_handle_selection, args=(push_target, idx, item), daemon=True).start()
         return
  
     # ── 特殊指令 ─────────────────────────────────────────────────────────────
@@ -623,3 +623,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 LINE Bot 啟動，監聽 port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+ 
