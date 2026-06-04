@@ -774,7 +774,15 @@ def main():
     seen_ids  = set()
     all_files = []
     for fid in folder_ids:
-        label = "整個雲端硬碟" if fid == "root" else fid
+        # 取得資料夾實際名稱
+        if fid == "root":
+            label = "整個雲端硬碟"
+        else:
+            try:
+                folder_info = drive.service.files().get(fileId=fid, fields="name").execute()
+                label = f"{folder_info.get('name', fid)}（{fid}）"
+            except Exception:
+                label = fid
         print(f"   🔍 掃描：{label}")
         found = drive.list_all_audio_files(fid)
         for f in found:
