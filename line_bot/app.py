@@ -581,7 +581,7 @@ def handle_message(event):
  
     # ── 群組訊息：只有明確 @ 提及機器人才回應 ──────────────────────────────
     if source_type == "group" or source_type == "room":
-        # 方法一：LINE SDK mention 偵測（最準確）
+        # 只用 LINE SDK 的 is_self 判斷，確保只有 @ 到機器人本身才回應
         mention = getattr(event.message, "mention", None)
         bot_mentioned = False
         if mention and getattr(mention, "mentionees", None):
@@ -590,19 +590,11 @@ def handle_message(event):
                     bot_mentioned = True
                     break
  
-        # 方法二：文字開頭有 @ 作為備用判斷
-        if not bot_mentioned and not text.startswith("@"):
-            return  # 沒有提及機器人，完全忽略
+        if not bot_mentioned:
+            return  # 沒有 @ 到機器人，完全忽略
  
         # 去掉「@機器人名稱 」前綴，取後面的實際問題
-        if text.startswith("@"):
-            parts = text.split(" ", 1)
-            text = parts[1].strip() if len(parts) > 1 else ""
-        elif bot_mentioned:
-            # 用 mention 位置切掉 @ 前綴
-            import re as _re
-            text = _re.sub(r"^@\S+\s*", "", text).strip()
- 
+        text = re.sub(r"^@\S+\s*", "", text).strip()
         if not text:
             _reply(reply_token, "請在 @ 後面輸入您的問題，例如：\n@錄音檔推薦機器人 推薦我分享產品的錄音")
             return
