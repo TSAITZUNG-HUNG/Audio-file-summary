@@ -738,6 +738,9 @@ def main():
             if _resp.status_code == 200:
                 _data = _resp.json()
                 for _page in _data.get("results", []):
+                    # 跳過已刪除（在垃圾桶）或已封存的頁面
+                    if _page.get("archived") or _page.get("in_trash"):
+                        continue
                     _rt = _page.get("properties", {}).get("檔案名稱", {}).get("rich_text", [])
                     _fname = "".join(r.get("plain_text", "") for r in _rt)
                     if _fname:
