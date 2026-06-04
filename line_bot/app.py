@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 🤖 LINE 錄音檔推薦機器人
@@ -580,13 +579,30 @@ def handle_message(event):
     else:
         push_target = user_id
  
-    # ── 群組訊息：只有 @ 提及才回應 ──────────────────────────────────────────
+    # ── 群組訊息：只有明確 @ 提及機器人才回應 ──────────────────────────────
     if source_type == "group" or source_type == "room":
-        if not text.startswith("@"):
-            return  # 沒有 @ 就忽略
+        # 方法一：LINE SDK mention 偵測（最準確）
+        mention = getattr(event.message, "mention", None)
+        bot_mentioned = False
+        if mention and getattr(mention, "mentionees", None):
+            for m in mention.mentionees:
+                if getattr(m, "is_self", False):
+                    bot_mentioned = True
+                    break
+ 
+        # 方法二：文字開頭有 @ 作為備用判斷
+        if not bot_mentioned and not text.startswith("@"):
+            return  # 沒有提及機器人，完全忽略
+ 
         # 去掉「@機器人名稱 」前綴，取後面的實際問題
-        parts = text.split(" ", 1)
-        text = parts[1].strip() if len(parts) > 1 else ""
+        if text.startswith("@"):
+            parts = text.split(" ", 1)
+            text = parts[1].strip() if len(parts) > 1 else ""
+        elif bot_mentioned:
+            # 用 mention 位置切掉 @ 前綴
+            import re as _re
+            text = _re.sub(r"^@\S+\s*", "", text).strip()
+ 
         if not text:
             _reply(reply_token, "請在 @ 後面輸入您的問題，例如：\n@錄音檔推薦機器人 推薦我分享產品的錄音")
             return
