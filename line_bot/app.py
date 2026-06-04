@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 🤖 LINE 錄音檔推薦機器人
@@ -361,7 +362,7 @@ def format_recommendations(items: list, question: str) -> str:
 # ════════════════════════════════════════════════════════════════════════════════
  
 def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
-    """背景執行：列出所有錄音檔名稱，支援關鍵字篩選，並儲存到 session 供後續選擇"""
+    """背景執行：按資料夾分類列出錄音檔，支援關鍵字篩選"""
     try:
         summaries = fetch_all_summaries()
         if not summaries:
@@ -370,48 +371,59 @@ def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
  
         # 關鍵字篩選
         if keyword:
-            filtered = [s for s in summaries if keyword in s["title"] or keyword in "".join(s["keywords"])]
-            header = f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個："
+            filtered = [s for s in summaries if keyword in s["title"] or keyword in "".join(s["keywords"]) or keyword in s.get("folder", "")]
+            if not filtered:
+                _push(push_target, f"找不到含有「{keyword}」的錄音檔。")
+                return
         else:
             filtered = summaries
-            header = f"📋 共 {len(filtered)} 個錄音檔："
  
-        if not filtered:
-            _push(push_target, f"找不到含有「{keyword}」的錄音檔。")
-            return
+        # 按資料夾分組並排序
+        from collections import defaultdict
+        folder_map = defaultdict(list)
+        for s in filtered:
+            folder = s.get("folder", "").strip() or "未分類"
+            folder_map[folder].append(s)
  
-        # 儲存到 session，讓使用者可以輸入編號取得連結
+        # 資料夾名稱排序（未分類放最後）
+        sorted_folders = sorted(
+            folder_map.keys(),
+            key=lambda x: ("zzz" if x == "未分類" else x)
+        )
+ 
+        # 建立全域編號列表（儲存到 session 供選擇用）
+        ordered = []
+        for folder in sorted_folders:
+            for s in folder_map[folder]:
+                ordered.append(s)
+ 
         _set_session(user_id, {
             "state": "listing",
-            "items": filtered,
+            "items": ordered,
             "push_target": push_target,
         })
  
-        # 每則訊息最多顯示 30 個
-        chunk_size = 30
-        total_msgs = (len(filtered) + chunk_size - 1) // chunk_size
+        # 輸出標題
+        if keyword:
+            _push(push_target, f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個錄音檔：")
+        else:
+            _push(push_target, f"📋 共 {len(filtered)} 個錄音檔，依資料夾分類：")
+        time.sleep(0.3)
  
-        for i in range(0, len(filtered), chunk_size):
-            chunk = filtered[i:i + chunk_size]
-            page_num = i // chunk_size + 1
-            lines = []
- 
-            if i == 0:
-                lines.append(header)
-                lines.append("")
- 
-            for j, s in enumerate(chunk, i + 1):
+        # 每個資料夾一則訊息
+        global_idx = 1
+        for folder in sorted_folders:
+            items_in_folder = folder_map[folder]
+            lines = [f"📁 {folder}（{len(items_in_folder)} 個）\n"]
+            for s in items_in_folder:
                 title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
                 dur = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
-                lines.append(f"{j}. {title}　{dur}")
- 
-            if total_msgs > 1:
-                lines.append(f"\n（第 {page_num}/{total_msgs} 頁）")
- 
+                lines.append(f"{global_idx}. {title}　{dur}")
+                global_idx += 1
             _push(push_target, "\n".join(lines))
             time.sleep(0.5)
  
-        _push(push_target, "💡 輸入編號即可取得該錄音檔的 Google Drive 連結！")
+        _push(push_target, "💡 輸入編號即可取得該錄音檔的 Google Drive 連結！\n（支援多個編號，如：1,3,5）")
  
     except Exception as e:
         print(f"[BG] 列表錯誤：{e}")
