@@ -336,20 +336,13 @@ _CIRCLE = ["①", "②", "③", "④", "⑤"]
  
 def format_recommendations(items: list, question: str) -> str:
     lines = [
-        f'🎙️ 根據您的需求：「{question[:50]}」\n我推薦以下 5 個錄音檔：\n',
+        f'根據您的需求：「{question[:50]}」\n我推薦以下 5 個錄音檔：\n',
     ]
     for i, item in enumerate(items):
-        dur = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
-        kw  = " #".join(item["keywords"][:3]) if item["keywords"] else ""
-        kw  = f"#{kw}" if kw else ""
-        # 移除標題末尾的日期「 — 2026/05/31」
+        dur   = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
         title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
-        # 移除推薦原因裡的「錄音檔[N]」前綴
-        reason = re.sub(r"^錄音檔\[\d+\]\s*", "", item["reason"]).strip()
         lines.append(
-            f"{_CIRCLE[i]} {title}\n"
-            f"💡 {reason}\n"
-            f"⏱ {dur}　{kw}\n"
+            f"{_CIRCLE[i]} {title}　⏱ {dur}\n"
             f"📖 摘要：{item['notion_url']}\n"
         )
     lines.append("─────────────────\n請回覆數字 1～5 選擇想聽的錄音檔，\n我會傳送 Google Drive 連結給您！")
