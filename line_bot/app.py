@@ -76,6 +76,20 @@ def _clear_session(user_id: str):
 # ════════════════════════════════════════════════════════════════════════════════
  
 _drive_service = None
+_bot_user_id = None  # 機器人自己的 LINE user ID（啟動時自動取得）
+ 
+def _get_bot_user_id() -> str:
+    """取得機器人自己的 LINE user ID，用於精確判斷 @ 提及"""
+    global _bot_user_id
+    if _bot_user_id is None:
+        try:
+            with ApiClient(line_config) as api_client:
+                info = MessagingApi(api_client).get_bot_info()
+                _bot_user_id = info.user_id
+                print(f"[Bot] Bot user ID 已載入：{_bot_user_id[:8]}...")
+        except Exception as e:
+            print(f"[Bot] 取得 Bot ID 失敗（不影響執行）：{e}")
+    return _bot_user_id
  
 def _get_drive_service():
     global _drive_service
@@ -572,21 +586,31 @@ def handle_message(event):
     else:
         push_target = user_id
  
-    # ── 群組訊息：只有明確 @ 提及機器人才回應 ──────────────────────────────
+    # ── 群組訊息：精確判斷是否 @ 到機器人本身 ───────────────────────────────
     if source_type == "group" or source_type == "room":
-        # 只用 LINE SDK 的 is_self 判斷，確保只有 @ 到機器人本身才回應
-        mention = getattr(event.message, "mention", None)
+        mention     = getattr(event.message, "mention", None)
+        mentionees  = getattr(mention, "mentionees", None) if mention else None
+        bot_id      = _get_bot_user_id()
         bot_mentioned = False
-        if mention and getattr(mention, "mentionees", None):
-            for m in mention.mentionees:
+ 
+        if mentionees:
+            for m in mentionees:
+                # 方法一：is_self（最準確）
                 if getattr(m, "is_self", False):
                     bot_mentioned = True
                     break
+                # 方法二：比對 bot 的 user_id
+                if bot_id and getattr(m, "user_id", None) == bot_id:
+                    bot_mentioned = True
+                    break
+        else:
+            # 沒有 mention 資料時退回 @ 開頭判斷
+            bot_mentioned = text.startswith("@")
  
         if not bot_mentioned:
-            return  # 沒有 @ 到機器人，完全忽略
+            return
  
-        # 去掉「@機器人名稱 」前綴，取後面的實際問題
+        # 去掉「@機器人名稱 」前綴
         text = re.sub(r"^@\S+\s*", "", text).strip()
         if not text:
             _reply(reply_token, "請在 @ 後面輸入您的問題，例如：\n@錄音檔推薦機器人 推薦我分享產品的錄音")
