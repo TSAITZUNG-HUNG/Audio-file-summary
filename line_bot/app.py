@@ -549,6 +549,54 @@ def _bg_handle_question(user_id: str, push_target: str, question: str):
         _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
  
  
+def _handle_selection_reply(reply_token: str, push_target: str, indices: list, items: list):
+    """
+    同步取得 Drive 連結並用 reply_message 回覆（免費，不佔月額度）。
+    reply 最多 5 則，超過的才用 push。
+    """
+    try:
+        messages = []
+        for idx in indices[:5]:  # 最多處理 5 個
+            if idx < 0 or idx >= len(items):
+                continue
+            item  = items[idx]
+            fname = item.get("file_name", "")
+            link  = get_drive_share_link(fname) if fname else ""
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item.get("title", fname)).strip()
+            notion_url = item.get("notion_url", "")
+ 
+            if link:
+                msg = (f"🎙️ {title}\n\n"
+                       f"📥 Google Drive 播放連結：\n{link}\n\n"
+                       f"📖 Notion 完整摘要：\n{notion_url}")
+            else:
+                msg = (f"🎙️ {title}\n\n"
+                       f"⚠️ 無法取得 Google Drive 連結\n\n"
+                       f"📖 Notion 完整摘要：\n{notion_url}")
+            messages.append(msg)
+ 
+        if not messages:
+            _reply(reply_token, "❌ 找不到對應的錄音檔。")
+            return
+ 
+        # 用 reply 送出（免費），最多 5 則
+        reply_msgs = [TextMessage(text=m) for m in messages[:5]]
+        with ApiClient(line_config) as api_client:
+            MessagingApi(api_client).reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=reply_msgs)
+            )
+        # 超過 5 個才用 push（極少發生）
+        for m in messages[5:]:
+            _push(push_target, m)
+ 
+    except Exception as e:
+        print(f"[Selection] 錯誤：{e}")
+        try:
+            _reply(reply_token, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
+        except Exception:
+            _push(push_target, f"❌ 取得連結時發生錯誤：{str(e)[:100]}")
+ 
+ 
 def _bg_handle_selection(push_target: str, idx: int, item: dict):
     """取得單一檔案的 Drive 連結"""
     try:
@@ -715,21 +763,15 @@ def handle_message(event):
     if session.get("state") == "selecting" and re.search(r"[1-5]", text):
         nums = re.findall(r"[1-5]", text)
         items = session.get("items", [])
-        indices = list(dict.fromkeys([int(n) - 1 for n in nums]))  # 去重並保持順序
+        indices = list(dict.fromkeys([int(n) - 1 for n in nums]))
  
         if not indices:
             _reply(reply_token, "請輸入 1～5 之間的數字選擇錄音檔。")
             return
  
         _clear_session(user_id)
-        if len(indices) == 1:
-            item = items[indices[0]]
-            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
-            _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
-            threading.Thread(target=_bg_handle_selection, args=(push_target, indices[0], item), daemon=True).start()
-        else:
-            _reply(reply_token, f"🔍 正在取得 {len(indices)} 個檔案的連結，請稍候...")
-            threading.Thread(target=_bg_handle_multi_selection, args=(push_target, indices, items), daemon=True).start()
+        # 同步取得 Drive 連結，使用免費 reply（不消耗月額度）
+        _handle_selection_reply(reply_token, push_target, indices, items)
         return
  
     # ── 使用者從 /list 輸入編號取得 Drive 連結（支援多選）────────────────
@@ -743,14 +785,8 @@ def handle_message(event):
             return
  
         _clear_session(user_id)
-        if len(indices) == 1:
-            item = items[indices[0]]
-            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
-            _reply(reply_token, f"🔍 正在取得「{title[:30]}」的連結，請稍候...")
-            threading.Thread(target=_bg_handle_selection, args=(push_target, indices[0], item), daemon=True).start()
-        else:
-            _reply(reply_token, f"🔍 正在取得 {len(indices)} 個檔案的連結，請稍候...")
-            threading.Thread(target=_bg_handle_multi_selection, args=(push_target, indices, items), daemon=True).start()
+        # 同步取得 Drive 連結，使用免費 reply（不消耗月額度）
+        _handle_selection_reply(reply_token, push_target, indices, items)
         return
  
     # ── 特殊指令 ─────────────────────────────────────────────────────────────
