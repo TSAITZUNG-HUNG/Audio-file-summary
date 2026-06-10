@@ -409,27 +409,41 @@ def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
             "push_target": push_target,
         })
  
-        # 輸出標題
+        # 標題
         if keyword:
-            _push(push_target, f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個錄音檔：")
+            header = f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個錄音檔："
         else:
-            _push(push_target, f"📋 共 {len(filtered)} 個錄音檔，依資料夾分類：")
-        time.sleep(0.3)
+            header = f"📋 共 {len(filtered)} 個錄音檔，依資料夾分類："
  
-        # 每個資料夾一則訊息
+        # 把多個資料夾合併，每則訊息最多 35 行，減少訊息數量避免被中斷
         global_idx = 1
+        current_lines = [header, ""]
+        messages = []
+ 
         for folder in sorted_folders:
             items_in_folder = folder_map[folder]
-            lines = [f"📁 {folder}（{len(items_in_folder)} 個）\n"]
+            folder_lines = [f"📁 {folder}（{len(items_in_folder)} 個）"]
             for s in items_in_folder:
                 title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
                 dur = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
-                lines.append(f"{global_idx}. {title}　{dur}")
+                folder_lines.append(f"{global_idx}. {title}　{dur}")
                 global_idx += 1
-            _push(push_target, "\n".join(lines))
-            time.sleep(0.5)
  
-        _push(push_target, "💡 輸入編號即可取得該錄音檔的 Google Drive 連結！\n（支援多個編號，如：1,3,5）")
+            # 若加進去超過 35 行就先送出，開新訊息
+            if len(current_lines) + len(folder_lines) > 35:
+                messages.append("\n".join(current_lines))
+                current_lines = folder_lines + [""]
+            else:
+                current_lines += folder_lines + [""]
+ 
+        if current_lines:
+            messages.append("\n".join(current_lines))
+ 
+        messages.append("💡 輸入編號即可取得該錄音檔的 Google Drive 連結！\n（支援多個編號，如：1,3,5）")
+ 
+        # 連續送出，不加 sleep
+        for msg in messages:
+            _push(push_target, msg.strip())
  
     except Exception as e:
         print(f"[BG] 列表錯誤：{e}")
