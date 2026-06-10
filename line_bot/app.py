@@ -360,11 +360,15 @@ def format_recommendations(items: list, question: str) -> str:
     for i, item in enumerate(items):
         dur   = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
         title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
-        lines.append(
+        drive_link = item.get("drive_link", "")
+        notion_url = item.get("notion_url", "")
+        block = (
             f"{_CIRCLE[i]} {title}　⏱ {dur}\n"
-            f"📖 摘要：{item['notion_url']}\n"
+            f"📖 摘要：{notion_url}\n"
         )
-    lines.append("─────────────────\n請回覆數字 1～5 選擇想聽的錄音檔，\n我會傳送 Google Drive 連結給您！")
+        if drive_link:
+            block += f"📥 音檔：{drive_link}\n"
+        lines.append(block)
     return "\n".join(lines)
  
  
@@ -546,7 +550,16 @@ def _bg_handle_question(user_id: str, push_target: str, question: str):
             _push(push_target, "😅 找不到合適的推薦，請換個方式描述您的需求，例如：\n「我想學習如何開發客戶」\n「推薦我關於時間管理的錄音」")
             return
  
-        _set_session(user_id, {"state": "selecting", "items": items, "question": question, "push_target": push_target})
+        # 同時取得每個推薦的 Drive 連結
+        print(f"[BG] 取得 {len(items)} 個 Drive 連結...")
+        for item in items:
+            fname = item.get("file_name", "")
+            if fname:
+                item["drive_link"] = get_drive_share_link(fname)
+            else:
+                item["drive_link"] = ""
+ 
+        # 直接輸出推薦＋連結，不需要使用者再選號
         _push(push_target, format_recommendations(items, question))
  
     except Exception as e:
@@ -839,22 +852,21 @@ def handle_message(event):
             "🎙️ 錄音檔推薦機器人 使用手冊\n"
             "══════════════════════\n\n"
             "📖 這個機器人是做什麼的？\n"
-            "從錄音檔資料庫中，根據你的問題或需求，用 AI 智慧推薦最適合的錄音檔，並提供 Notion 摘要頁面與 Google Drive 播放連結。\n\n"
+            "從錄音檔資料庫中，根據你的問題或需求，用 AI 智慧推薦最適合的錄音檔，並直接提供 Notion 摘要頁面與 Google Drive 播放連結。\n\n"
             "══════════════════════\n\n"
             "📌 功能一：AI 推薦\n"
-            "直接輸入你的問題或需求，Bot 會從資料庫掃描所有錄音檔，推薦 5 個最相關的。\n\n"
-            "・回覆單一數字（如 2）→ 取得該檔連結\n"
-            "・回覆多個數字（如 1,3,5）→ 一次取得多個連結\n\n"
+            "直接輸入你的問題或需求，Bot 會從資料庫掃描所有錄音檔，自動推薦 5 個最相關的，並同時附上摘要連結與音檔連結。\n\n"
             "範例問題：\n"
             "・我不知道怎麼開發新客戶\n"
             "・推薦跟業績提升相關的錄音\n"
             "・我想學習如何管理時間\n\n"
             "══════════════════════\n\n"
             "📋 功能二：列出清單\n"
-            "輸入 /list 列出所有錄音檔。\n"
+            "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
             "也可以用 /list 關鍵字 搜尋特定錄音。\n\n"
-            "・回覆單一數字（如 5）→ 取得該檔連結\n"
-            "・回覆多個數字（如 1,3,5 或 1 3 5）→ 一次取得多個連結\n\n"
+            "輸入編號即可取得音檔連結：\n"
+            "・單個：5\n"
+            "・多個：1,3,5 或 1 3 5\n\n"
             "範例：\n"
             "・/list（列出全部）\n"
             "・/list 溝通（搜尋含「溝通」的錄音）\n\n"
