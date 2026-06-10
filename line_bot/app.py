@@ -367,6 +367,85 @@ def format_recommendations(items: list, question: str) -> str:
 # 背景任務處理
 # ════════════════════════════════════════════════════════════════════════════════
  
+def _handle_list_reply(user_id: str, reply_token: str, push_target: str, keyword: str = ""):
+    """
+    同步執行 /list，用 reply_message 送出（免費，不佔月額度）。
+    LINE reply 最多 5 則訊息，超過的用 push 補送。
+    """
+    try:
+        summaries = fetch_all_summaries()
+        if not summaries:
+            _reply(reply_token, "⚠️ 目前資料庫沒有錄音檔摘要。")
+            return
+ 
+        if keyword:
+            filtered = [s for s in summaries if keyword in s["title"] or keyword in "".join(s["keywords"]) or keyword in s.get("folder", "")]
+            if not filtered:
+                _reply(reply_token, f"找不到含有「{keyword}」的錄音檔。")
+                return
+        else:
+            filtered = summaries
+ 
+        from collections import defaultdict
+        folder_map = defaultdict(list)
+        for s in filtered:
+            folder = s.get("folder", "").strip() or "未分類"
+            folder_map[folder].append(s)
+ 
+        sorted_folders = sorted(folder_map.keys(), key=lambda x: ("zzz" if x == "未分類" else x))
+ 
+        ordered = []
+        for folder in sorted_folders:
+            for s in folder_map[folder]:
+                ordered.append(s)
+ 
+        _set_session(user_id, {"state": "listing", "items": ordered, "push_target": push_target})
+ 
+        # 建立訊息列表
+        if keyword:
+            header = f"🔍 搜尋「{keyword}」，找到 {len(filtered)} 個錄音檔："
+        else:
+            header = f"📋 共 {len(filtered)} 個錄音檔，依資料夾分類："
+ 
+        global_idx = 1
+        current_lines = [header, ""]
+        messages = []
+ 
+        for folder in sorted_folders:
+            items_in_folder = folder_map[folder]
+            folder_lines = [f"📁 {folder}（{len(items_in_folder)} 個）"]
+            for s in items_in_folder:
+                title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+                dur = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
+                folder_lines.append(f"{global_idx}. {title}　{dur}")
+                global_idx += 1
+            if len(current_lines) + len(folder_lines) > 35:
+                messages.append("\n".join(current_lines).strip())
+                current_lines = folder_lines + [""]
+            else:
+                current_lines += folder_lines + [""]
+ 
+        if current_lines:
+            messages.append("\n".join(current_lines).strip())
+        messages.append("💡 輸入編號即可取得該錄音檔的 Google Drive 連結！\n（支援多個編號，如：1,3,5）")
+ 
+        # 前 5 則用免費 reply，超過的用 push
+        reply_msgs = [TextMessage(text=m) for m in messages[:5]]
+        with ApiClient(line_config) as api_client:
+            MessagingApi(api_client).reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=reply_msgs)
+            )
+        for m in messages[5:]:
+            _push(push_target, m)
+ 
+    except Exception as e:
+        print(f"[List] 錯誤：{e}")
+        try:
+            _reply(reply_token, f"❌ 載入清單時發生錯誤：{str(e)[:100]}")
+        except Exception:
+            _push(push_target, f"❌ 載入清單時發生錯誤：{str(e)[:100]}")
+ 
+ 
 def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
     """背景執行：按資料夾分類列出錄音檔，支援關鍵字篩選"""
     try:
@@ -732,9 +811,9 @@ def handle_message(event):
         return
  
     if text.startswith("/list"):
-        _reply(reply_token, "📋 正在載入錄音檔清單...")
         keyword = text[5:].strip()
-        threading.Thread(target=_bg_handle_list, args=(user_id, push_target, keyword), daemon=True).start()
+        # /list 同步執行並用 reply（免費，不佔月額度）
+        _handle_list_reply(user_id, reply_token, push_target, keyword)
         return
  
     # ── 新問題 ────────────────────────────────────────────────────────────────
