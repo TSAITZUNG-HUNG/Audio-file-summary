@@ -53,6 +53,11 @@ NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
 GOOGLE_SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 GOOGLE_SA_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
  
+# 通關密碼（在 Render 環境變數 BOT_PASSWORD 設定，隨時可改）
+BOT_PASSWORD = os.environ.get("BOT_PASSWORD", "")
+# 已驗證的使用者 ID（in-memory，重啟後需重新輸入密碼）
+_authorized_users: set = set()
+ 
 # ── In-memory Session ────────────────────────────────────────────────────────
 _sessions: dict = {}
 SESSION_TTL_MIN = 10
@@ -755,6 +760,22 @@ def handle_message(event):
         text = re.sub(r"^@\S+\s*", "", text).strip()
         if not text:
             _reply(reply_token, "請在 @ 後面輸入您的問題，例如：\n@錄音檔推薦機器人 推薦我分享產品的錄音")
+            return
+ 
+    # ── 通關密碼驗證 ──────────────────────────────────────────────────────
+    if BOT_PASSWORD:
+        if user_id not in _authorized_users:
+            if text == BOT_PASSWORD:
+                _authorized_users.add(user_id)
+                _reply(reply_token,
+                    "✅ 驗證成功！歡迎使用錄音檔推薦機器人 🎙️\n\n"
+                    "輸入「使用手冊」查看完整功能說明。"
+                )
+            else:
+                _reply(reply_token,
+                    "🔒 請輸入通關密碼才能使用此機器人。\n"
+                    "（請向管理員索取密碼）"
+                )
             return
  
     session = _get_session(user_id)
