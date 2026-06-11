@@ -538,33 +538,102 @@ def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
         _push(push_target, f"❌ 載入清單時發生錯誤：{str(e)[:100]}")
  
  
-def _bg_handle_question(user_id: str, push_target: str, question: str):
+def _fetch_drive_links(items: list) -> list:
+    """為每個推薦項目取得 Drive 連結"""
+    for item in items:
+        fname = item.get("file_name", "")
+        item["drive_link"] = get_drive_share_link(fname) if fname else ""
+    return items
+ 
+ 
+def _bg_handle_question(user_id: str, push_target: str, question: str,
+                        exclude_ids: list = None, max_duration: float = None):
     try:
         summaries = fetch_all_summaries()
         if not summaries:
             _push(push_target, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
             return
  
-        items = recommend_transcripts(question, summaries)
+        # 篩選：排除已推薦過的 / 限制時長
+        filtered = summaries
+        if exclude_ids:
+            filtered = [s for s in filtered if s["id"] not in exclude_ids]
+        if max_duration is not None:
+            filtered = [s for s in filtered if s["duration_min"] <= max_duration]
+ 
+        if len(filtered) < 5:
+            if max_duration is not None:
+                _push(push_target, f"😅 {max_duration:.0f} 分鐘以內的錄音檔不足 5 個，目前找到 {len(filtered)} 個。")
+                if not filtered:
+                    return
+            else:
+                _push(push_target, "😅 已沒有更多推薦，請重新輸入問題。")
+                return
+ 
+        items = recommend_transcripts(question, filtered)
         if not items:
-            _push(push_target, "😅 找不到合適的推薦，請換個方式描述您的需求，例如：\n「我想學習如何開發客戶」\n「推薦我關於時間管理的錄音」")
+            _push(push_target, "😅 找不到合適的推薦，請換個方式描述您的需求。")
             return
  
-        # 同時取得每個推薦的 Drive 連結
-        print(f"[BG] 取得 {len(items)} 個 Drive 連結...")
-        for item in items:
-            fname = item.get("file_name", "")
-            if fname:
-                item["drive_link"] = get_drive_share_link(fname)
-            else:
-                item["drive_link"] = ""
+        # 取得 Drive 連結
+        _fetch_drive_links(items)
  
-        # 直接輸出推薦＋連結，不需要使用者再選號
+        # 儲存 session 供「再推薦」或「太長了」使用
+        shown_ids = [item["id"] for item in items]
+        all_shown = (exclude_ids or []) + shown_ids
+        _set_session(user_id, {
+            "state": "post_recommendation",
+            "question": question,
+            "shown_ids": all_shown,
+            "push_target": push_target,
+        })
+ 
         _push(push_target, format_recommendations(items, question))
  
     except Exception as e:
         print(f"[BG] 問題處理錯誤：{e}")
         _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
+ 
+ 
+def _bg_handle_search(push_target: str, keyword: str, reply_token: str = None):
+    """直接關鍵字搜尋，不經過 AI，輸出匹配的錄音檔（含兩個連結）"""
+    try:
+        summaries = fetch_all_summaries()
+        keyword_lower = keyword.lower()
+        matched = [
+            s for s in summaries
+            if keyword_lower in s["title"].lower()
+            or keyword_lower in "".join(s["keywords"]).lower()
+            or keyword_lower in s.get("folder", "").lower()
+        ]
+ 
+        if not matched:
+            msg = f"🔍 找不到含有「{keyword}」的錄音檔。\n試試用更短的關鍵字，或用 AI 推薦：直接輸入你的問題。"
+            if reply_token:
+                _reply(reply_token, msg)
+            else:
+                _push(push_target, msg)
+            return
+ 
+        lines = [f"🔍 搜尋「{keyword}」，找到 {len(matched)} 個錄音檔：\n"]
+        for i, s in enumerate(matched[:10], 1):  # 最多顯示 10 個
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+            dur = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else ""
+            drive_link = get_drive_share_link(s.get("file_name", ""))
+            lines.append(
+                f"{i}. {title}　⏱ {dur}\n"
+                f"   📖 摘要：{s['notion_url']}\n"
+                + (f"   📥 音檔：{drive_link}\n" if drive_link else "")
+            )
+        if len(matched) > 10:
+            lines.append(f"\n（共 {len(matched)} 個，僅顯示前 10 個）")
+ 
+        result = "\n".join(lines)
+        _push(push_target, result)
+ 
+    except Exception as e:
+        print(f"[Search] 錯誤：{e}")
+        _push(push_target, f"❌ 搜尋時發生錯誤：{str(e)[:100]}")
  
  
 def _handle_selection_reply(reply_token: str, push_target: str, indices: list, items: list):
@@ -855,25 +924,26 @@ def handle_message(event):
             "從錄音檔資料庫中，根據你的問題或需求，用 AI 智慧推薦最適合的錄音檔，並直接提供 Notion 摘要頁面與 Google Drive 播放連結。\n\n"
             "══════════════════════\n\n"
             "📌 功能一：AI 推薦\n"
-            "直接輸入你的問題或需求，Bot 會從資料庫掃描所有錄音檔，自動推薦 5 個最相關的，並同時附上摘要連結與音檔連結。\n\n"
+            "直接輸入你的問題或需求，Bot 自動推薦 5 個最相關的錄音檔，並附上摘要連結與音檔連結。\n\n"
+            "推薦後還可以輸入：\n"
+            "・再推薦5個 → 換一批新推薦\n"
+            "・太長了 → 只推薦 30 分鐘以內的\n\n"
             "範例問題：\n"
             "・我不知道怎麼開發新客戶\n"
-            "・推薦跟業績提升相關的錄音\n"
-            "・我想學習如何管理時間\n\n"
+            "・推薦跟業績提升相關的錄音\n\n"
             "══════════════════════\n\n"
-            "📋 功能二：列出清單\n"
-            "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
-            "也可以用 /list 關鍵字 搜尋特定錄音。\n\n"
-            "輸入編號即可取得音檔連結：\n"
-            "・單個：5\n"
-            "・多個：1,3,5 或 1 3 5\n\n"
+            "🔍 功能二：關鍵字搜尋\n"
+            "輸入 /search 關鍵字 直接搜尋錄音檔。\n\n"
             "範例：\n"
-            "・/list（列出全部）\n"
-            "・/list 溝通（搜尋含「溝通」的錄音）\n\n"
+            "・/search 溝通\n"
+            "・/search ABC\n\n"
+            "══════════════════════\n\n"
+            "📋 功能三：列出清單\n"
+            "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
+            "輸入編號取得音檔連結（支援多選：1,3,5）。\n\n"
             "══════════════════════\n\n"
             "🔤 其他指令\n"
             "・使用手冊 — 顯示此說明\n"
-            "・說明 — 顯示簡易說明\n"
             "・取消 — 取消目前操作\n\n"
             "💡 群組中請先 @ 機器人再輸入指令"
         )
@@ -881,9 +951,41 @@ def handle_message(event):
  
     if text.startswith("/list"):
         keyword = text[5:].strip()
-        # /list 同步執行並用 reply（免費，不佔月額度）
         _handle_list_reply(user_id, reply_token, push_target, keyword)
         return
+ 
+    if text.startswith("/search ") or text.startswith("/搜尋 "):
+        keyword = re.sub(r"^/(search|搜尋)\s+", "", text).strip()
+        if keyword:
+            _reply(reply_token, f"🔍 正在搜尋「{keyword}」，請稍候...")
+            threading.Thread(target=_bg_handle_search, args=(push_target, keyword), daemon=True).start()
+        else:
+            _reply(reply_token, "請輸入搜尋關鍵字，例如：/search 溝通")
+        return
+ 
+    # ── 推薦後的快速指令 ──────────────────────────────────────────────────
+    if session.get("state") == "post_recommendation":
+        if text in ("再推薦5個", "再推薦 5 個", "換一批", "再推薦"):
+            question    = session.get("question", "")
+            shown_ids   = session.get("shown_ids", [])
+            _clear_session(user_id)
+            _reply(reply_token, "🔍 正在為您換一批推薦，請稍候...")
+            threading.Thread(target=_bg_handle_question,
+                             args=(user_id, push_target, question),
+                             kwargs={"exclude_ids": shown_ids},
+                             daemon=True).start()
+            return
+ 
+        if text in ("太長了", "短一點", "30分鐘以內"):
+            question  = session.get("question", "")
+            shown_ids = session.get("shown_ids", [])
+            _clear_session(user_id)
+            _reply(reply_token, "🔍 正在篩選 30 分鐘以內的錄音檔，請稍候...")
+            threading.Thread(target=_bg_handle_question,
+                             args=(user_id, push_target, question),
+                             kwargs={"exclude_ids": shown_ids, "max_duration": 30},
+                             daemon=True).start()
+            return
  
     # ── 新問題 ────────────────────────────────────────────────────────────────
     _clear_session(user_id)
