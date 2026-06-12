@@ -58,11 +58,22 @@ BOT_PASSWORD = os.environ.get("BOT_PASSWORD", "")
 # 已驗證的使用者 ID（存檔持久化，重啟後自動讀回）
 _AUTH_FILE = "/tmp/authorized_users.json"
 
+def _pw_hash(pw: str) -> str:
+    import hashlib
+    return hashlib.sha256(pw.encode()).hexdigest()[:16]
+
 def _load_authorized_users() -> set:
+    """載入授權名單；若密碼已變更，自動清除所有舊授權"""
     try:
         if os.path.exists(_AUTH_FILE):
             with open(_AUTH_FILE, "r") as f:
-                return set(json.load(f))
+                data = json.load(f)
+            stored_hash = data.get("pw_hash", "")
+            current_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
+            if stored_hash != current_hash:
+                print("[Auth] 密碼已變更，清除所有舊授權名單")
+                return set()
+            return set(data.get("users", []))
     except Exception:
         pass
     return set()
@@ -70,7 +81,10 @@ def _load_authorized_users() -> set:
 def _save_authorized_users(users: set):
     try:
         with open(_AUTH_FILE, "w") as f:
-            json.dump(list(users), f)
+            json.dump({
+                "pw_hash": _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else "",
+                "users": list(users),
+            }, f)
     except Exception as e:
         print(f"[Auth] 儲存失敗：{e}")
 
