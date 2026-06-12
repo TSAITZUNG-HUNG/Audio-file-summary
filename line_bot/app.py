@@ -83,6 +83,11 @@ def _clear_session(user_id: str):
 _drive_service = None
 _bot_user_id = None  # 機器人自己的 LINE user ID（啟動時自動取得）
 
+# Notion 摘要快取（避免每次都重新讀取，加快回應速度）
+_summaries_cache: list = []
+_summaries_cache_time: datetime = datetime.min
+CACHE_TTL_MINUTES = 10
+
 def _get_bot_user_id() -> str:
     """取得機器人自己的 LINE user ID，用於精確判斷 @ 提及"""
     global _bot_user_id
@@ -170,6 +175,17 @@ def _notion_headers() -> dict:
 def _get_rich_text(props: dict, key: str) -> str:
     rt = props.get(key, {}).get("rich_text", [])
     return "".join(r.get("plain_text", "") for r in rt)
+
+
+def fetch_all_summaries_cached() -> list:
+    """帶快取的版本，10 分鐘內重複使用同一份資料，大幅加快搜尋速度"""
+    global _summaries_cache, _summaries_cache_time
+    if _summaries_cache and (datetime.now() - _summaries_cache_time).seconds < CACHE_TTL_MINUTES * 60:
+        print(f"[Cache] 使用快取（{len(_summaries_cache)} 筆）")
+        return _summaries_cache
+    _summaries_cache = fetch_all_summaries()
+    _summaries_cache_time = datetime.now()
+    return _summaries_cache
 
 
 def fetch_all_summaries(max_pages: int = 400) -> list:
@@ -382,7 +398,7 @@ def _handle_list_reply(user_id: str, reply_token: str, push_target: str, keyword
     LINE reply 最多 5 則訊息，超過的用 push 補送。
     """
     try:
-        summaries = fetch_all_summaries()
+        summaries = fetch_all_summaries_cached()
         if not summaries:
             _reply(reply_token, "⚠️ 目前資料庫沒有錄音檔摘要。")
             return
@@ -458,7 +474,7 @@ def _handle_list_reply(user_id: str, reply_token: str, push_target: str, keyword
 def _bg_handle_list(user_id: str, push_target: str, keyword: str = ""):
     """背景執行：按資料夾分類列出錄音檔，支援關鍵字篩選"""
     try:
-        summaries = fetch_all_summaries()
+        summaries = fetch_all_summaries_cached()
         if not summaries:
             _push(push_target, "⚠️ 目前資料庫沒有錄音檔摘要。")
             return
@@ -549,7 +565,7 @@ def _fetch_drive_links(items: list) -> list:
 def _bg_handle_question(user_id: str, push_target: str, question: str,
                         exclude_ids: list = None, max_duration: float = None):
     try:
-        summaries = fetch_all_summaries()
+        summaries = fetch_all_summaries_cached()
         if not summaries:
             _push(push_target, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
             return
@@ -598,7 +614,7 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
 def _handle_search_reply(user_id: str, reply_token: str, push_target: str, keyword: str):
     """同步搜尋，用 reply_message 回覆（免費，不佔月額度）"""
     try:
-        summaries = fetch_all_summaries()
+        summaries = fetch_all_summaries_cached()
         keyword_lower = keyword.lower()
         matched = [
             s for s in summaries
@@ -653,7 +669,7 @@ def _handle_search_reply(user_id: str, reply_token: str, push_target: str, keywo
 def _bg_handle_search(user_id: str, push_target: str, keyword: str):
     """關鍵字搜尋，平行取得 Drive 連結，直接輸出摘要＋音檔連結"""
     try:
-        summaries = fetch_all_summaries()
+        summaries = fetch_all_summaries_cached()
         keyword_lower = keyword.lower()
         matched = [
             s for s in summaries
