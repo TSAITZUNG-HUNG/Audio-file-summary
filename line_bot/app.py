@@ -595,8 +595,8 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
         _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
  
  
-def _bg_handle_search(push_target: str, keyword: str, reply_token: str = None):
-    """直接關鍵字搜尋，不經過 AI，輸出匹配的錄音檔（含兩個連結）"""
+def _bg_handle_search(user_id: str, push_target: str, keyword: str):
+    """關鍵字搜尋，平行取得 Drive 連結，直接輸出摘要＋音檔連結"""
     try:
         summaries = fetch_all_summaries()
         keyword_lower = keyword.lower()
@@ -608,28 +608,31 @@ def _bg_handle_search(push_target: str, keyword: str, reply_token: str = None):
         ]
  
         if not matched:
-            msg = f"🔍 找不到含有「{keyword}」的錄音檔。\n試試用更短的關鍵字，或用 AI 推薦：直接輸入你的問題。"
-            if reply_token:
-                _reply(reply_token, msg)
-            else:
-                _push(push_target, msg)
+            _push(push_target, f"🔍 找不到含有「{keyword}」的錄音檔。\n試試用更短的關鍵字，或直接輸入問題用 AI 推薦。")
             return
  
-        lines = [f"🔍 搜尋「{keyword}」，找到 {len(matched)} 個錄音檔：\n"]
-        for i, s in enumerate(matched[:10], 1):  # 最多顯示 10 個
+        # 最多顯示 10 個，平行取得 Drive 連結
+        show = matched[:10]
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            links = list(executor.map(
+                lambda s: get_drive_share_link(s.get("file_name", "")), show
+            ))
+ 
+        header = f"🔍 搜尋「{keyword}」，找到 {len(matched)} 個錄音檔"
+        if len(matched) > 10:
+            header += "（顯示前 10 個）"
+ 
+        blocks = [header, ""]
+        for i, (s, link) in enumerate(zip(show, links), 1):
             title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
             dur = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else ""
-            drive_link = get_drive_share_link(s.get("file_name", ""))
-            lines.append(
-                f"{i}. {title}　⏱ {dur}\n"
-                f"   📖 摘要：{s['notion_url']}\n"
-                + (f"   📥 音檔：{drive_link}\n" if drive_link else "")
-            )
-        if len(matched) > 10:
-            lines.append(f"\n（共 {len(matched)} 個，僅顯示前 10 個）")
+            block = f"{i}. {title}　⏱ {dur}\n📖 摘要：{s['notion_url']}"
+            if link:
+                block += f"\n📥 音檔：{link}"
+            blocks.append(block)
  
-        result = "\n".join(lines)
-        _push(push_target, result)
+        _push(push_target, "\n\n".join(blocks))
  
     except Exception as e:
         print(f"[Search] 錯誤：{e}")
@@ -958,7 +961,7 @@ def handle_message(event):
         keyword = re.sub(r"^/(search|搜尋)\s+", "", text).strip()
         if keyword:
             _reply(reply_token, f"🔍 正在搜尋「{keyword}」，請稍候...")
-            threading.Thread(target=_bg_handle_search, args=(push_target, keyword), daemon=True).start()
+            threading.Thread(target=_bg_handle_search, args=(user_id, push_target, keyword), daemon=True).start()
         else:
             _reply(reply_token, "請輸入搜尋關鍵字，例如：/search 溝通")
         return
