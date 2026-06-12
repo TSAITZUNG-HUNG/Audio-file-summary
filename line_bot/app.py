@@ -55,8 +55,27 @@ GOOGLE_SA_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.
 
 # 通關密碼（在 Render 環境變數 BOT_PASSWORD 設定，隨時可改）
 BOT_PASSWORD = os.environ.get("BOT_PASSWORD", "")
-# 已驗證的使用者 ID（in-memory，重啟後需重新輸入密碼）
-_authorized_users: set = set()
+# 已驗證的使用者 ID（存檔持久化，重啟後自動讀回）
+_AUTH_FILE = "/tmp/authorized_users.json"
+
+def _load_authorized_users() -> set:
+    try:
+        if os.path.exists(_AUTH_FILE):
+            with open(_AUTH_FILE, "r") as f:
+                return set(json.load(f))
+    except Exception:
+        pass
+    return set()
+
+def _save_authorized_users(users: set):
+    try:
+        with open(_AUTH_FILE, "w") as f:
+            json.dump(list(users), f)
+    except Exception as e:
+        print(f"[Auth] 儲存失敗：{e}")
+
+_authorized_users: set = _load_authorized_users()
+print(f"[Auth] 載入 {len(_authorized_users)} 個已授權使用者")
 
 # ── In-memory Session ────────────────────────────────────────────────────────
 _sessions: dict = {}
@@ -923,6 +942,7 @@ def handle_message(event):
         if user_id not in _authorized_users:
             if text == BOT_PASSWORD:
                 _authorized_users.add(user_id)
+                _save_authorized_users(_authorized_users)  # 存檔，重啟後記得
                 _reply(reply_token,
                     "✅ 驗證成功！歡迎使用錄音檔推薦機器人 🎙️\n\n"
                     "輸入「使用手冊」查看完整功能說明。"
