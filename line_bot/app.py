@@ -595,6 +595,61 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
         _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
  
  
+def _handle_search_reply(user_id: str, reply_token: str, push_target: str, keyword: str):
+    """同步搜尋，用 reply_message 回覆（免費，不佔月額度）"""
+    try:
+        summaries = fetch_all_summaries()
+        keyword_lower = keyword.lower()
+        matched = [
+            s for s in summaries
+            if keyword_lower in s["title"].lower()
+            or keyword_lower in "".join(s["keywords"]).lower()
+            or keyword_lower in s.get("folder", "").lower()
+        ]
+ 
+        if not matched:
+            _reply(reply_token, f"🔍 找不到含有「{keyword}」的錄音檔。\n試試用更短的關鍵字，或直接輸入問題用 AI 推薦。")
+            return
+ 
+        show = matched[:10]
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            links = list(executor.map(
+                lambda s: get_drive_share_link(s.get("file_name", "")), show
+            ))
+ 
+        header = f"🔍 搜尋「{keyword}」，找到 {len(matched)} 個錄音檔"
+        if len(matched) > 10:
+            header += "（顯示前 10 個）"
+ 
+        blocks = [header, ""]
+        for i, (s, link) in enumerate(zip(show, links), 1):
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+            dur = f"{s['duration_min']:.0f}分鐘" if s["duration_min"] else ""
+            block = f"{i}. {title}　⏱ {dur}\n📖 摘要：{s['notion_url']}"
+            if link:
+                block += f"\n📥 音檔：{link}"
+            blocks.append(block)
+ 
+        result = "\n\n".join(blocks)
+ 
+        # 用 reply 送出（免費）
+        with ApiClient(line_config) as api_client:
+            MessagingApi(api_client).reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=result)]
+                )
+            )
+ 
+    except Exception as e:
+        print(f"[Search] 錯誤：{e}")
+        try:
+            _reply(reply_token, f"❌ 搜尋時發生錯誤：{str(e)[:100]}")
+        except Exception:
+            _push(push_target, f"❌ 搜尋時發生錯誤：{str(e)[:100]}")
+ 
+ 
 def _bg_handle_search(user_id: str, push_target: str, keyword: str):
     """關鍵字搜尋，平行取得 Drive 連結，直接輸出摘要＋音檔連結"""
     try:
@@ -948,59 +1003,3 @@ def handle_message(event):
             "🔤 其他指令\n"
             "・使用手冊 — 顯示此說明\n"
             "・取消 — 取消目前操作\n\n"
-            "💡 群組中請先 @ 機器人再輸入指令"
-        )
-        return
- 
-    if text.startswith("/list"):
-        keyword = text[5:].strip()
-        _handle_list_reply(user_id, reply_token, push_target, keyword)
-        return
- 
-    if text.startswith("/search ") or text.startswith("/搜尋 "):
-        keyword = re.sub(r"^/(search|搜尋)\s+", "", text).strip()
-        if keyword:
-            _reply(reply_token, f"🔍 正在搜尋「{keyword}」，請稍候...")
-            threading.Thread(target=_bg_handle_search, args=(user_id, push_target, keyword), daemon=True).start()
-        else:
-            _reply(reply_token, "請輸入搜尋關鍵字，例如：/search 溝通")
-        return
- 
-    # ── 推薦後的快速指令 ──────────────────────────────────────────────────
-    if session.get("state") == "post_recommendation":
-        if text in ("再推薦5個", "再推薦 5 個", "換一批", "再推薦"):
-            question    = session.get("question", "")
-            shown_ids   = session.get("shown_ids", [])
-            _clear_session(user_id)
-            _reply(reply_token, "🔍 正在為您換一批推薦，請稍候...")
-            threading.Thread(target=_bg_handle_question,
-                             args=(user_id, push_target, question),
-                             kwargs={"exclude_ids": shown_ids},
-                             daemon=True).start()
-            return
- 
-        if text in ("太長了", "短一點", "30分鐘以內"):
-            question  = session.get("question", "")
-            shown_ids = session.get("shown_ids", [])
-            _clear_session(user_id)
-            _reply(reply_token, "🔍 正在篩選 30 分鐘以內的錄音檔，請稍候...")
-            threading.Thread(target=_bg_handle_question,
-                             args=(user_id, push_target, question),
-                             kwargs={"exclude_ids": shown_ids, "max_duration": 30},
-                             daemon=True).start()
-            return
- 
-    # ── 新問題 ────────────────────────────────────────────────────────────────
-    _clear_session(user_id)
-    _reply(reply_token, "🔍 正在為您分析推薦中，\n通常需要 15～30 秒，請稍候...")
-    threading.Thread(target=_bg_handle_question, args=(user_id, push_target, text), daemon=True).start()
- 
- 
-# ════════════════════════════════════════════════════════════════════════════════
-# 啟動
-# ════════════════════════════════════════════════════════════════════════════════
- 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 LINE Bot 啟動，監聽 port {port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
