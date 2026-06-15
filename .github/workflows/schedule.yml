@@ -10,12 +10,15 @@
 #         GOOGLE_SERVICE_ACCOUNT_JSON
 #   選填：GITHUB_DRIVE_FOLDER_ID, SUMMARY_GITHUB_TOKEN
 # ============================================================
- 
+
 name: 🎙️ 錄音檔摘要機器人（免費版）
 
 on:
+  # 每天 UTC 01:00 = 台北時間 09:00
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 1 * * *'
+
+  # 手動觸發（可選擇是否強制重新處理）
   workflow_dispatch:
     inputs:
       force_reprocess:
@@ -33,26 +36,32 @@ jobs:
   run-bot:
     name: 掃描並生成摘要
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 120   # 最多跑 2 小時（large-v3 模型轉長錄音需要時間）
 
     steps:
+      # ── 1. 取得程式碼 ─────────────────────────────────────────────────────────
       - name: Checkout 程式碼
         uses: actions/checkout@v4
 
+      # ── 2. 設定 Python ────────────────────────────────────────────────────────
       - name: 設定 Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
+      # ── 3. 安裝系統依賴（faster-whisper 需要 ffmpeg）────────────────────────
       - name: 安裝 ffmpeg
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -1
 
+      # ── 4. 安裝 Python 套件 ───────────────────────────────────────────────────
       - name: 安裝 Python 套件
         run: pip install -r requirements.txt
 
+      # ── 5. 快取 Whisper 模型（避免每次重新下載）────────────────────────────
       - name: 快取 Whisper 模型
         uses: actions/cache@v4
         with:
@@ -61,7 +70,8 @@ jobs:
           restore-keys: |
             whisper-model-
 
-      - name: 還原已處理記錄
+      # ── 6. 還原已處理記錄快取（硬碟A）──────────────────────────────────────
+      - name: 還原已處理記錄（硬碟A）
         if: ${{ github.event.inputs.force_reprocess != 'true' }}
         uses: actions/cache@v4
         with:
@@ -70,31 +80,66 @@ jobs:
           restore-keys: |
             processed-files-${{ github.ref_name }}-
 
+      # ── 6b. 還原已處理記錄快取（硬碟B）─────────────────────────────────────
+      - name: 還原已處理記錄（硬碟B）
+        if: ${{ github.event.inputs.force_reprocess != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: processed_files_b.json
+          key: processed-files-b-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            processed-files-b-${{ github.ref_name }}-
+
+      # ── 7. 清除快取（強制重新處理）──────────────────────────────────────────
       - name: 清除處理記錄（強制模式）
         if: ${{ github.event.inputs.force_reprocess == 'true' }}
-        run: rm -f processed_files.json
+        run: |
+          echo "⚠️ 強制重新處理模式：清除已處理記錄"
+          rm -f processed_files.json processed_files_b.json
 
+      # ── 8. 建立 Google 服務帳號金鑰 ──────────────────────────────────────────
       - name: 建立 Google 服務帳號金鑰
-        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
 
+      # ── 9. 建立日誌目錄 ───────────────────────────────────────────────────────
       - name: 建立日誌目錄
         run: mkdir -p logs
 
+      # ── 10. 執行機器人 ────────────────────────────────────────────────────────
       - name: 🚀 執行錄音檔摘要機器人
         env:
-          GROQ_API_KEY:                ${{ secrets.GROQ_API_KEY }}
-          GROQ_MODEL:                  llama-3.3-70b-versatile
+          # Groq 免費 API
+          GROQ_API_KEY:   ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL:     ${{ vars.GROQ_MODEL || 'llama-3.3-70b-versatile' }}
+
+          # Google Drive
           GOOGLE_SERVICE_ACCOUNT_FILE: service_account.json
-          GOOGLE_DRIVE_FOLDER_IDS:     ${{ secrets.GOOGLE_DRIVE_FOLDER_IDS }}
-          NOTION_TOKEN:                ${{ secrets.NOTION_TOKEN }}
-          NOTION_DATABASE_ID:          ${{ secrets.NOTION_DATABASE_ID }}
-          GITHUB_TOKEN:                ${{ secrets.SUMMARY_GITHUB_TOKEN }}
-          WHISPER_MODEL:               ${{ github.event.inputs.whisper_model || 'small' }}
-          WHISPER_LANGUAGE:            zh
-          SUMMARY_LANGUAGE:            繁體中文
-          PROCESSED_CACHE:             processed_files.json
-          HF_TOKEN:                    ${{ secrets.HF_TOKEN }}
-          PYTHONUNBUFFERED:            "1"
+          GOOGLE_DRIVE_FOLDER_IDS:     ${{ secrets.GOOGLE_DRIVE_FOLDER_IDS || 'root' }}
+          DRIVE_B_FOLDER_IDS:          ${{ secrets.DRIVE_B_FOLDER_IDS }}
+
+          # Notion
+          NOTION_TOKEN:          ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID:    ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_DATABASE_B_ID:  ${{ secrets.NOTION_DATABASE_B_ID }}
+
+          # GitHub（選填）
+          GITHUB_TOKEN:  ${{ secrets.SUMMARY_GITHUB_TOKEN }}
+          GITHUB_REPO:   ${{ vars.GITHUB_SUMMARY_REPO || github.repository }}
+          GITHUB_BRANCH: ${{ vars.GITHUB_SUMMARY_BRANCH || 'main' }}
+          GITHUB_FOLDER: ${{ vars.GITHUB_SUMMARY_FOLDER || 'audio-summaries' }}
+
+          # Whisper 設定
+          WHISPER_MODEL:    ${{ github.event.inputs.whisper_model || vars.WHISPER_MODEL || 'small' }}
+          WHISPER_LANGUAGE: ${{ vars.WHISPER_LANGUAGE || 'zh' }}
+          SUMMARY_LANGUAGE: ${{ vars.SUMMARY_LANGUAGE || '繁體中文' }}
+
+          PROCESSED_CACHE: processed_files.json
+          # HuggingFace token（加速 Whisper 模型下載，申請：huggingface.co/settings/tokens）
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          # Python 不緩衝輸出，讓 log 即時顯示
+          PYTHONUNBUFFERED: "1"
+
         run: |
           echo "🕐 開始時間：$(date '+%Y-%m-%d %H:%M:%S')"
           python -u audio_summary_bot.py 2>&1 | tee logs/$(date +%Y%m%d_%H%M%S).log
@@ -102,10 +147,12 @@ jobs:
           echo "🕐 結束時間：$(date '+%Y-%m-%d %H:%M:%S')"
           exit $EXIT_CODE
 
+      # ── 11. 清除金鑰（無論成功失敗都執行）──────────────────────────────────
       - name: 清除服務帳號金鑰
         if: always()
         run: rm -f service_account.json
 
+      # ── 12. 上傳日誌 ─────────────────────────────────────────────────────────
       - name: 上傳執行日誌
         if: always()
         uses: actions/upload-artifact@v4
