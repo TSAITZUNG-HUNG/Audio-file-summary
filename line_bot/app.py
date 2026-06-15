@@ -47,8 +47,9 @@ GROQ_API_KEY  = os.environ["GROQ_API_KEY"]
 GROQ_MODEL    = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 groq_client   = Groq(api_key=GROQ_API_KEY)
 
-NOTION_TOKEN       = os.environ["NOTION_TOKEN"]
-NOTION_DATABASE_ID = os.environ["NOTION_DATABASE_ID"]
+NOTION_TOKEN          = os.environ["NOTION_TOKEN"]
+NOTION_DATABASE_ID    = os.environ["NOTION_DATABASE_ID"]
+NOTION_DATABASE_B_ID  = os.environ.get("NOTION_DATABASE_B_ID", "")  # 自己的逐字稿總覽
 
 GOOGLE_SA_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 GOOGLE_SA_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
@@ -257,6 +258,10 @@ def fetch_all_summaries(max_pages: int = 400) -> list:
             if not title and not file_name:
                 continue
 
+            # 讀取「來源」欄位（select），用來區分硬碟A / 硬碟B
+            source = props.get("來源", {}).get("select", {})
+            source_name = source.get("name", "") if source else ""
+
             summaries.append({
                 "id":           page["id"],
                 "title":        title,
@@ -266,6 +271,7 @@ def fetch_all_summaries(max_pages: int = 400) -> list:
                 "keywords":     keywords,
                 "notion_url":   notion_url,
                 "summary_text": summary_text,
+                "source":       source_name,   # "" or "硬碟B"
             })
 
         has_more     = data.get("has_more", False)
@@ -424,6 +430,107 @@ def format_recommendations(items: list, question: str) -> str:
 # ════════════════════════════════════════════════════════════════════════════════
 # 背景任務處理
 # ════════════════════════════════════════════════════════════════════════════════
+
+def _fetch_summaries_from_db(database_id: str, max_pages: int = 400) -> list:
+    """從指定資料庫 ID 讀取摘要清單（不使用快取，供雙硬碟模式使用）"""
+    headers = _notion_headers()
+    summaries = []
+    has_more = True
+    start_cursor = None
+
+    while has_more and len(summaries) < max_pages:
+        body: dict = {"page_size": 100}
+        if start_cursor:
+            body["start_cursor"] = start_cursor
+        resp = req_lib.post(
+            f"https://api.notion.com/v1/databases/{database_id}/query",
+            headers=headers, json=body, timeout=15
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        for page in data.get("results", []):
+            props = page.get("properties", {})
+            title_arr = props.get("Name", {}).get("title", [])
+            title = "".join(t.get("plain_text", "") for t in title_arr)
+            file_name   = _get_rich_text(props, "檔案名稱")
+            folder_name = _get_rich_text(props, "資料夾")
+            duration    = props.get("時長（分鐘）", {}).get("number") or 0
+            page_id_clean = page["id"].replace("-", "")
+            notion_url  = f"https://www.notion.so/{page_id_clean}"
+            if not title and not file_name:
+                continue
+            summaries.append({
+                "id":           page["id"],
+                "title":        title,
+                "file_name":    file_name,
+                "folder":       folder_name,
+                "duration_min": round(duration, 1),
+                "notion_url":   notion_url,
+            })
+
+        has_more     = data.get("has_more", False)
+        start_cursor = data.get("next_cursor")
+
+    return summaries
+
+
+def _handle_dual_drive_reply(reply_token: str, push_target: str):
+    """
+    雙硬碟模式（zzz29663703）：
+    分別從「逐字稿總覽」和「自己的逐字稿總覽」兩個資料庫讀取，分開顯示。
+    第一則用免費 reply，其餘用 push。
+    """
+    try:
+        # 硬碟A：從原本的資料庫讀取
+        drive_a = fetch_all_summaries_cached()
+
+        # 硬碟B：從第二個資料庫讀取
+        if NOTION_DATABASE_B_ID:
+            drive_b = _fetch_summaries_from_db(NOTION_DATABASE_B_ID)
+        else:
+            drive_b = []
+
+        def _build_list(items: list, header: str) -> list:
+            """把清單切成多則訊息（每則最多 35 行）"""
+            if not items:
+                return [f"{header}\n（目前沒有錄音檔）"]
+            lines = [header, ""]
+            msgs = []
+            for i, s in enumerate(items, 1):
+                title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+                dur   = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
+                lines.append(f"{i}. {title}　{dur}")
+                if len(lines) >= 35:
+                    msgs.append("\n".join(lines).strip())
+                    lines = []
+            if lines:
+                msgs.append("\n".join(lines).strip())
+            return msgs
+
+        messages = []
+        messages += _build_list(drive_a, f"📀 【逐字稿總覽】共 {len(drive_a)} 個：")
+        messages += _build_list(drive_b, f"💿 【自己的逐字稿總覽】共 {len(drive_b)} 個：")
+        messages.append("💡 若要取得音檔連結，請輸入 /list 後再選擇編號。")
+
+        # 第一則用 reply（免費），其餘用 push
+        with ApiClient(line_config) as api_client:
+            MessagingApi(api_client).reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=messages[0])]
+                )
+            )
+        for m in messages[1:]:
+            _push(push_target, m)
+
+    except Exception as e:
+        print(f"[DualDrive] 錯誤：{e}")
+        try:
+            _reply(reply_token, f"❌ 載入雙硬碟清單時發生錯誤：{str(e)[:100]}")
+        except Exception:
+            _push(push_target, f"❌ 載入雙硬碟清單時發生錯誤：{str(e)[:100]}")
+
 
 def _handle_list_reply(user_id: str, reply_token: str, push_target: str, keyword: str = ""):
     """
@@ -1055,6 +1162,11 @@ def handle_message(event):
             "・取消 — 取消目前操作\n\n"
             "💡 群組中請先 @ 機器人再輸入指令"
         )
+        return
+
+    # ── 雙硬碟模式（管理員專屬，需標記機器人 + 輸入密鑰）──────────────────
+    if text == "zzz29663703":
+        _handle_dual_drive_reply(reply_token, push_target)
         return
 
     if text.startswith("/list"):
