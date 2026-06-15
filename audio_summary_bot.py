@@ -7,15 +7,15 @@
 • 雲端硬碟：Google Drive（服務帳號，免費）
 • 摘要儲存：Notion 頁面（免費）
 • 自動排程：GitHub Actions（每天免費執行）
- 
+
 費用：$0 / 完全免費
- 
+
 使用方式：
   1. cp .env.example .env  → 填入 API 金鑰
   2. pip install -r requirements.txt
   3. python audio_summary_bot.py
 """
- 
+
 import os
 import json
 import re
@@ -24,25 +24,25 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
- 
+
 # ── 載入 .env ────────────────────────────────────────────────────────────────
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # 設定
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class Config:
     # ── Groq 免費 API（摘要生成）──────────────────────────────────────────────
     # 申請：https://console.groq.com/keys（完全免費）
     GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
     GROQ_MODEL:   str = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
- 
+
     # ── Google Drive ────────────────────────────────────────────────────────────
     GOOGLE_SERVICE_ACCOUNT_FILE: str = os.environ.get(
         "GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"
@@ -51,7 +51,7 @@ class Config:
     # GOOGLE_DRIVE_FOLDER_IDS=abc123,def456,ghi789
     # 留空或填 root = 掃描整個雲端硬碟
     GOOGLE_DRIVE_FOLDER_IDS: str = os.environ.get("GOOGLE_DRIVE_FOLDER_IDS", "root")
- 
+
     @property
     def folder_id_list(self) -> list:
         """回傳資料夾 ID 清單"""
@@ -59,70 +59,84 @@ class Config:
         if not raw or raw.lower() == "root":
             return ["root"]
         return [fid.strip() for fid in raw.split(",") if fid.strip()]
- 
+
+    # ── 雲端硬碟 B（第二個帳號）────────────────────────────────────────────────
+    # 多個資料夾 ID 用逗號分隔
+    DRIVE_B_FOLDER_IDS: str = os.environ.get("DRIVE_B_FOLDER_IDS", "")
+    DRIVE_B_PROCESSED_CACHE: str = os.environ.get("DRIVE_B_PROCESSED_CACHE", "processed_files_b.json")
+
+    @property
+    def drive_b_folder_id_list(self) -> list:
+        raw = self.DRIVE_B_FOLDER_IDS.strip()
+        if not raw:
+            return []
+        return [fid.strip() for fid in raw.split(",") if fid.strip()]
+
     # ── Notion ──────────────────────────────────────────────────────────────────
-    NOTION_TOKEN:       str = os.environ.get("NOTION_TOKEN", "")
-    NOTION_DATABASE_ID: str = os.environ.get("NOTION_DATABASE_ID", "")
- 
+    NOTION_TOKEN:          str = os.environ.get("NOTION_TOKEN", "")
+    NOTION_DATABASE_ID:    str = os.environ.get("NOTION_DATABASE_ID", "")
+    # 硬碟B專用資料庫（自己的逐字稿總覽）
+    NOTION_DATABASE_B_ID:  str = os.environ.get("NOTION_DATABASE_B_ID", "")
+
     # ── GitHub（選填，推送 Markdown 備份）──────────────────────────────────────
     GITHUB_TOKEN:  str = os.environ.get("GITHUB_TOKEN", "")
     GITHUB_REPO:   str = os.environ.get("GITHUB_REPO", "")
     GITHUB_BRANCH: str = os.environ.get("GITHUB_BRANCH", "main")
     GITHUB_FOLDER: str = os.environ.get("GITHUB_FOLDER", "audio-summaries")
- 
+
     # ── Whisper 本地模型 ────────────────────────────────────────────────────────
     # 可選：tiny / base / small / medium / large-v3
     # GitHub Actions 建議用 "small"（速度快，中文準確度夠用）
     # 本機有 GPU 可用 "medium" 或 "large-v3"（最準確）
     WHISPER_MODEL:    str = os.environ.get("WHISPER_MODEL", "small")
     WHISPER_LANGUAGE: str = os.environ.get("WHISPER_LANGUAGE", "zh")  # 留空=自動偵測
- 
+
     # ── 其他 ────────────────────────────────────────────────────────────────────
     PROCESSED_CACHE:  str = os.environ.get("PROCESSED_CACHE", "processed_files.json")
     SUMMARY_LANGUAGE: str = os.environ.get("SUMMARY_LANGUAGE", "繁體中文")
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # 已處理追蹤器
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class ProcessedFilesTracker:
     def __init__(self, cache_file: str):
         self.cache_file = cache_file
         self.data: dict = self._load()
- 
+
     def _load(self) -> dict:
         if os.path.exists(self.cache_file):
             with open(self.cache_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         return {}
- 
+
     def _save(self):
         with open(self.cache_file, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
- 
+
     def is_processed(self, file_id: str) -> bool:
         return file_id in self.data
- 
+
     def is_filename_processed(self, file_name: str) -> bool:
         """檢查是否已有相同檔名的記錄（避免不同資料夾的同名檔案重複處理）"""
         for record in self.data.values():
             if record.get("file_name") == file_name:
                 return True
         return False
- 
+
     def mark_processed(self, file_id: str, metadata: dict):
         self.data[file_id] = {**metadata, "processed_at": datetime.now().isoformat()}
         self._save()
- 
+
     def all_records(self) -> list:
         return list(self.data.values())
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # Google Drive 客戶端
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class GoogleDriveClient:
     def __init__(self, service_account_file: str):
         from google.oauth2 import service_account as sa
@@ -132,7 +146,7 @@ class GoogleDriveClient:
             scopes=["https://www.googleapis.com/auth/drive.readonly"],
         )
         self.service = build("drive", "v3", credentials=creds)
- 
+
     def list_all_audio_files(self, folder_id: str = "root") -> list:
         """列出所有 .mp3 / .m4a 音檔"""
         query = (
@@ -142,7 +156,7 @@ class GoogleDriveClient:
         )
         if folder_id and folder_id.lower() != "root":
             query += f" and '{folder_id}' in parents"
- 
+
         files, page_token = [], None
         while True:
             resp = self.service.files().list(
@@ -154,7 +168,7 @@ class GoogleDriveClient:
             if not page_token:
                 break
         return files
- 
+
     def download_file(self, file_id: str, dest_path: str) -> str:
         import time
         from googleapiclient.http import MediaIoBaseDownload
@@ -174,7 +188,7 @@ class GoogleDriveClient:
                     time.sleep(wait)
                 else:
                     raise                    # 3次都失敗才真正拋錯
- 
+
     def get_folder_name(self, file_info: dict) -> str:
         try:
             parents = file_info.get("parents", [])
@@ -184,12 +198,12 @@ class GoogleDriveClient:
             return parent.get("name", "未知資料夾")
         except Exception:
             return "未知資料夾"
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # faster-whisper 本地語音轉文字（完全免費）
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class LocalWhisperTranscriber:
     """
     使用 faster-whisper 在本機執行語音轉文字
@@ -197,12 +211,12 @@ class LocalWhisperTranscriber:
     - 模型第一次執行時自動下載（約 150MB～1.5GB）
     - GitHub Actions free runner（2核CPU）：1小時錄音 ≈ 15-25分鐘處理時間
     """
- 
+
     def __init__(self, model_size: str = "small", language: str = "zh"):
         self.model_size = model_size
         self.language   = language or None
         self._model     = None  # 延遲載入
- 
+
     def _get_model(self):
         if self._model is None:
             from faster_whisper import WhisperModel
@@ -212,7 +226,7 @@ class LocalWhisperTranscriber:
             print(f"      📥 載入 Whisper {self.model_size} 模型（{device}）...")
             self._model = WhisperModel(self.model_size, device=device, compute_type=compute)
         return self._model
- 
+
     @staticmethod
     def _has_cuda() -> bool:
         try:
@@ -220,7 +234,7 @@ class LocalWhisperTranscriber:
             return torch.cuda.is_available()
         except ImportError:
             return False
- 
+
     def transcribe(self, audio_path: str) -> dict:
         """
         回傳：
@@ -233,64 +247,64 @@ class LocalWhisperTranscriber:
         kwargs = dict(beam_size=5, vad_filter=True)
         if self.language:
             kwargs["language"] = self.language
- 
+
         segments_iter, info = model.transcribe(audio_path, **kwargs)
- 
+
         segments, full_text = [], []
         duration = 0.0
         for seg in segments_iter:
             segments.append({"start": seg.start, "end": seg.end, "text": seg.text.strip()})
             full_text.append(seg.text.strip())
             duration = seg.end
- 
+
         return {
             "text":     " ".join(full_text),
             "segments": segments,
             "language": info.language,
             "duration": duration,
         }
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # Groq 免費 API 摘要生成（Llama 3.3 70B）
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 SUMMARY_PROMPT = """\
 你是一位專業的會議/講座記錄整理師，擅長將語音轉錄稿整理成清晰易讀的摘要。
 請用{lang}整理以下錄音逐字稿，依以下格式輸出：
- 
+
 ## 📋 重點摘要
 （3～8 個條列要點，每點 1～2 句，直接點出核心內容）
- 
+
 ## 🕐 時間軸
 （若錄音超過 5 分鐘，標出各段落的時間點與主題；短於 5 分鐘可略過）
- 
+
 ## 💡 行動事項 / 決策
 （列出任何待辦事項、決策或後續追蹤；若無則寫「無」）
- 
+
 ## 🏷️ 關鍵字標籤
 （列出 5～10 個關鍵詞，用逗號分隔）
- 
+
 ## 📊 圖表說明（選填）
 （如果內容有流程、架構或數據，用 Mermaid 語法畫出；若無則略過）
- 
+
 ---
 錄音時長：{duration}
 偵測語言：{detected_lang}
 ---
- 
+
 逐字稿：
 {transcript}
 """
- 
- 
+
+
 class GroqSummaryGenerator:
     """
     使用 Groq 免費 API 生成摘要，支援多個 API Key 輪流使用。
     GROQ_API_KEY 可填多個 key，用逗號分隔：key1,key2,key3
     某個 key 每日額度用完時自動切換到下一個。
     """
- 
+
     def __init__(self, api_key: str, model: str, summary_language: str = "繁體中文"):
         from groq import Groq
         # 支援多個 key（逗號分隔）
@@ -301,7 +315,7 @@ class GroqSummaryGenerator:
         self.lang   = summary_language
         if len(self.api_keys) > 1:
             print(f"   🔑 載入 {len(self.api_keys)} 個 Groq API Key，額度用完時自動切換")
- 
+
     def _next_key(self) -> bool:
         """切換到下一個 API Key，回傳是否還有可用的 key"""
         from groq import Groq
@@ -311,7 +325,7 @@ class GroqSummaryGenerator:
         self.client = Groq(api_key=self.api_keys[self.key_index])
         print(f"      🔄 切換到第 {self.key_index + 1} 個 API Key")
         return True
- 
+
     @staticmethod
     def _fmt_duration(seconds: float) -> str:
         if seconds <= 0:
@@ -319,7 +333,7 @@ class GroqSummaryGenerator:
         h, rem = divmod(int(seconds), 3600)
         m, s   = divmod(rem, 60)
         return f"{h}小時{m}分{s}秒" if h else f"{m}分{s}秒"
- 
+
     def generate(self, transcript: str, duration: float, detected_lang: str) -> str:
         # 從 4000 字元開始嘗試，若 413（逐字稿太長）則自動縮短後重試
         for max_chars in [4000, 2500, 1200]:
@@ -353,12 +367,12 @@ class GroqSummaryGenerator:
                     continue
                 raise
         raise RuntimeError("逐字稿超過長度上限，即使縮短後仍無法送出")
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # 輔助函式
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 def extract_keywords(summary_text: str) -> list:
     lines = summary_text.split("\n")
     for i, line in enumerate(lines):
@@ -369,15 +383,15 @@ def extract_keywords(summary_text: str) -> list:
                     raw = re.split(r"[,，、\s]+", candidate)
                     return [k.strip("#*` ") for k in raw if 1 < len(k.strip()) < 30][:10]
     return []
- 
- 
+
+
 def extract_mermaid_charts(text: str) -> tuple:
     pattern = r"```mermaid\n(.*?)```"
     charts  = re.findall(pattern, text, re.DOTALL)
     clean   = re.sub(pattern, "", text, flags=re.DOTALL)
     return clean, charts
- 
- 
+
+
 def build_markdown(
     title: str, file_name: str, folder_name: str,
     duration: float, processed_date: str,
@@ -385,35 +399,35 @@ def build_markdown(
 ) -> str:
     mins, secs = divmod(int(duration), 60)
     return f"""# 🎙️ {title}
- 
+
 > **檔案名稱**：{file_name}
 > **資料夾**：{folder_name}
 > **時長**：{mins}:{secs:02d}
 > **處理時間**：{processed_date}
 > **Notion 頁面**：{notion_url}
- 
+
 ---
- 
+
 {summary}
- 
+
 ---
- 
+
 <details>
 <summary>📝 完整逐字稿（點擊展開）</summary>
- 
+
 {transcript}
- 
+
 </details>
 """
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # Notion 客戶端
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class NotionClient:
     BASE_URL = "https://api.notion.com/v1"
- 
+
     def __init__(self, token: str, database_id: str):
         import requests as req_lib
         self._req = req_lib
@@ -423,29 +437,29 @@ class NotionClient:
             "Notion-Version": "2022-06-28",
         }
         self.database_id = database_id
- 
+
     def _rt(self, text: str, bold: bool = False) -> list:
         obj = {"type": "text", "text": {"content": text[:2000]}}
         if bold:
             obj["annotations"] = {"bold": True}
         return [obj]
- 
+
     def _heading(self, level: int, text: str) -> dict:
         key = f"heading_{level}"
         return {"object": "block", "type": key, key: {"rich_text": self._rt(text)}}
- 
+
     def _paragraph(self, text: str) -> dict:
         return {"object": "block", "type": "paragraph",
                 "paragraph": {"rich_text": self._rt(text)}}
- 
+
     def _bullet(self, text: str) -> dict:
         return {"object": "block", "type": "bulleted_list_item",
                 "bulleted_list_item": {"rich_text": self._rt(text)}}
- 
+
     def _numbered(self, text: str) -> dict:
         return {"object": "block", "type": "numbered_list_item",
                 "numbered_list_item": {"rich_text": self._rt(text)}}
- 
+
     def _md_to_blocks(self, text: str) -> list:
         blocks = []
         for raw_line in text.split("\n"):
@@ -467,15 +481,39 @@ class NotionClient:
             else:
                 blocks.append(self._paragraph(line))
         return blocks
- 
+
+    def create_child_subpage(self, parent_page_id: str, title: str, transcript: str) -> str:
+        """
+        在指定 Notion 頁面底下，建立一個逐字稿子頁面。
+        parent_page_id 需要含 dash 的格式（直接從 API 回傳的 id 欄位取得）。
+        """
+        blocks = []
+        chunk_size = 1800
+        for i in range(0, min(len(transcript), 54000), chunk_size):
+            chunk = transcript[i:i + chunk_size]
+            blocks.append(self._paragraph(chunk))
+
+        payload = {
+            "parent":     {"type": "page_id", "page_id": parent_page_id},
+            "icon":       {"emoji": "📝"},
+            "properties": {
+                "title": [{"text": {"content": title}}]
+            },
+            "children": blocks[:100],
+        }
+        resp = self._req.post(f"{self.BASE_URL}/pages", headers=self.headers, json=payload)
+        resp.raise_for_status()
+        sub_id = resp.json().get("id", "").replace("-", "")
+        return f"https://www.notion.so/{sub_id}"
+
     def create_summary_page(
         self, title: str, file_name: str, folder_name: str,
         duration: float, summary: str, transcript: str,
-        keywords: list, processed_date: str,
-    ) -> str:
+        keywords: list, processed_date: str, source: str = "",
+    ) -> tuple:
         clean_summary, charts = extract_mermaid_charts(summary)
         mins, secs = divmod(int(duration), 60)
- 
+
         children = [
             {
                 "object": "block", "type": "callout",
@@ -488,15 +526,15 @@ class NotionClient:
             },
             {"object": "block", "type": "divider", "divider": {}},
         ]
- 
+
         children.extend(self._md_to_blocks(clean_summary)[:80])
- 
+
         for chart in charts[:3]:
             children.append({
                 "object": "block", "type": "code",
                 "code": {"language": "mermaid", "rich_text": self._rt(chart.strip())},
             })
- 
+
         children.append({"object": "block", "type": "divider", "divider": {}})
         transcript_blocks = [
             self._paragraph(ln) for ln in transcript[:6000].split("\n") if ln.strip()
@@ -508,7 +546,7 @@ class NotionClient:
                 "children":  transcript_blocks,
             },
         })
- 
+
         # 先用最基本的 properties 嘗試建立頁面，避免欄位不存在造成 400 錯誤
         def _try_create(props: dict) -> dict:
             payload = {
@@ -520,7 +558,7 @@ class NotionClient:
             resp = self._req.post(f"{self.BASE_URL}/pages", headers=self.headers, json=payload)
             resp.raise_for_status()
             return resp.json()
- 
+
         # 嘗試完整屬性，失敗就退回只有標題
         full_props = {
             "Name":        {"title":      [{"text": {"content": title[:500]}}]},
@@ -530,21 +568,25 @@ class NotionClient:
             "時長（分鐘）": {"number":    round(duration / 60, 1) if duration > 0 else 0},
             "關鍵字":      {"multi_select": [{"name": k[:100]} for k in keywords[:10]]},
         }
+        if source:
+            full_props["來源"] = {"select": {"name": source}}
         try:
             data = _try_create(full_props)
         except Exception:
             # 退回只有標題（一定能成功）
             print(f"      ⚠️  完整屬性失敗，改用純標題模式...")
             data = _try_create({"Name": {"title": [{"text": {"content": title[:500]}}]}})
- 
-        page_id = data.get("id", "").replace("-", "")
-        return f"https://www.notion.so/{page_id}"
- 
- 
+
+        raw_page_id = data.get("id", "")          # 含 dash，供建立子頁面用
+        page_id_clean = raw_page_id.replace("-", "")
+        notion_url = f"https://www.notion.so/{page_id_clean}"
+        return notion_url, raw_page_id
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # GitHub 同步器
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 class GitHubSyncer:
     def __init__(self, token: str, repo: str, branch: str, folder: str):
         import requests as req_lib
@@ -556,7 +598,7 @@ class GitHubSyncer:
             "Authorization": f"token {token}",
             "Accept":        "application/vnd.github.v3+json",
         }
- 
+
     def push_file(self, filename: str, content: str) -> str:
         import base64
         path    = f"{self.folder}/{filename}"
@@ -573,7 +615,7 @@ class GitHubSyncer:
         resp = self._req.put(url, headers=self.headers, json=payload)
         resp.raise_for_status()
         return resp.json().get("content", {}).get("html_url", "")
- 
+
     def update_index(self, records: list):
         rows = sorted(records, key=lambda x: x.get("processed_at", ""), reverse=True)
         lines = [
@@ -592,12 +634,12 @@ class GitHubSyncer:
             link   = f"[Notion]({notion})" + (f" ｜ [MD]({gh})" if gh else "")
             lines.append(f"| {name} | {folder} | {dur} | {date} | {link} |")
         self.push_file("index.md", "\n".join(lines))
- 
- 
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # 單一音檔處理流程
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 def process_one_file(
     file_info:   dict,
     drive:       GoogleDriveClient,
@@ -610,35 +652,35 @@ def process_one_file(
     file_id   = file_info["id"]
     file_name = file_info["name"]
     print(f"\n  🎙️  {file_name}")
- 
+
     folder_name = drive.get_folder_name(file_info)
     suffix      = ".m4a" if ".m4a" in file_name.lower() else ".mp3"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
- 
+
     try:
         print(f"      ⬇️  下載中...")
         drive.download_file(file_id, tmp_path)
- 
+
         print(f"      🎧 語音轉文字中（faster-whisper）...")
         td = transcriber.transcribe(tmp_path)
         print(f"         → {GroqSummaryGenerator._fmt_duration(td['duration'])}，偵測語言：{td['language']}")
- 
+
         print(f"      🤖 生成摘要中（Groq / Llama 3.3）...")
         summary = summarizer.generate(td["text"], td["duration"], td["language"])
- 
+
         keywords    = extract_keywords(summary)
         today       = datetime.now().strftime("%Y/%m/%d")
         title       = Path(file_name).stem
         proc_date   = datetime.now().strftime("%Y-%m-%d %H:%M")
- 
+
         print(f"      📓 建立 Notion 頁面...")
-        notion_url = notion.create_summary_page(
+        notion_url, _ = notion.create_summary_page(
             title=title, file_name=file_name, folder_name=folder_name,
             duration=td["duration"], summary=summary, transcript=td["text"],
             keywords=keywords, processed_date=proc_date,
         )
- 
+
         github_url = ""
         if github:
             print(f"      🐙 同步至 GitHub...")
@@ -653,16 +695,16 @@ def process_one_file(
                 github_url = github.push_file(md_fname, md_content)
             except Exception as e:
                 print(f"      ⚠️  GitHub 同步失敗：{e}")
- 
+
         tracker.mark_processed(file_id, {
             "file_name": file_name, "folder_name": folder_name,
             "duration": td["duration"], "notion_url": notion_url,
             "github_url": github_url,
         })
- 
+
         print(f"      ✅ 完成！→ {notion_url}")
         return {"ok": True, "file_name": file_name, "notion_url": notion_url}
- 
+
     except Exception as exc:
         err_str = str(exc)
         # Groq 每日 token 上限 → 停止當天所有後續處理，明天繼續
@@ -671,16 +713,99 @@ def process_one_file(
             raise SystemExit("GROQ_DAILY_LIMIT")
         print(f"      ❌ 失敗：{exc}")
         return {"ok": False, "file_name": file_name, "error": err_str}
- 
+
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
- 
- 
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 雲端硬碟 B：處理單一音檔（建立 Notion 摘要頁面 + 逐字稿子頁面）
+# ════════════════════════════════════════════════════════════════════════════════
+
+def process_drive_b_file(
+    file_info:   dict,
+    drive:       GoogleDriveClient,
+    transcriber: LocalWhisperTranscriber,
+    summarizer:  GroqSummaryGenerator,
+    notion_b:    NotionClient,          # 指向「自己的逐字稿總覽」資料庫
+    tracker_b:   ProcessedFilesTracker,
+    tracker_a:   ProcessedFilesTracker,
+) -> dict:
+    """
+    處理雲端硬碟 B 的音檔：
+    1. 若檔名與硬碟 A 相同 → 跳過
+    2. 轉錄 → 生成摘要
+    3. 寫入「自己的逐字稿總覽」資料庫（NOTION_DATABASE_B_ID）
+    """
+    file_id   = file_info["id"]
+    file_name = file_info["name"]
+
+    # 已處理（硬碟 B 自身快取）
+    if tracker_b.is_processed(file_id) or tracker_b.is_filename_processed(file_name):
+        return {"ok": True, "file_name": file_name, "skipped": True, "reason": "B已處理"}
+
+    # 與硬碟 A 同名 → 跳過
+    if tracker_a.is_filename_processed(file_name):
+        print(f"\n  ⏭️  {file_name}（與硬碟A同名，跳過）")
+        tracker_b.mark_processed(file_id, {
+            "file_name": file_name, "skipped": True, "reason": "同名硬碟A",
+        })
+        return {"ok": True, "file_name": file_name, "skipped": True, "reason": "同名硬碟A"}
+
+    print(f"\n  🗂️  [硬碟B] {file_name}")
+    folder_name = drive.get_folder_name(file_info)
+    suffix      = ".m4a" if ".m4a" in file_name.lower() else ".mp3"
+    fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+
+    try:
+        print(f"      ⬇️  下載中...")
+        drive.download_file(file_id, tmp_path)
+
+        print(f"      🎧 語音轉文字中（faster-whisper）...")
+        td = transcriber.transcribe(tmp_path)
+        print(f"         → {GroqSummaryGenerator._fmt_duration(td['duration'])}，偵測語言：{td['language']}")
+
+        print(f"      🤖 生成摘要中（Groq / Llama 3.3）...")
+        summary = summarizer.generate(td["text"], td["duration"], td["language"])
+
+        keywords  = extract_keywords(summary)
+        title     = Path(file_name).stem
+        proc_date = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        print(f"      📓 寫入「自己的逐字稿總覽」資料庫...")
+        notion_url, _ = notion_b.create_summary_page(
+            title=title, file_name=file_name, folder_name=folder_name,
+            duration=td["duration"], summary=summary, transcript=td["text"],
+            keywords=keywords, processed_date=proc_date,
+        )
+
+        tracker_b.mark_processed(file_id, {
+            "file_name": file_name, "folder_name": folder_name,
+            "duration": td["duration"], "notion_url": notion_url,
+        })
+
+        print(f"      ✅ 完成！→ {notion_url}")
+        return {"ok": True, "file_name": file_name, "notion_url": notion_url}
+
+    except Exception as exc:
+        err_str = str(exc)
+        if "rate_limit_exceeded" in err_str and "tokens per day" in err_str:
+            print(f"      ⏸️  Groq 每日免費額度已用完，今天先到這裡，明天繼續！")
+            raise SystemExit("GROQ_DAILY_LIMIT")
+        print(f"      ❌ 失敗：{exc}")
+        return {"ok": False, "file_name": file_name, "error": err_str}
+
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # 主程式
 # ════════════════════════════════════════════════════════════════════════════════
- 
+
 def validate_config(cfg: Config) -> list:
     missing = []
     if not cfg.GROQ_API_KEY:
@@ -692,14 +817,14 @@ def validate_config(cfg: Config) -> list:
     if not os.path.exists(cfg.GOOGLE_SERVICE_ACCOUNT_FILE):
         missing.append(f"Google 服務帳號金鑰：{cfg.GOOGLE_SERVICE_ACCOUNT_FILE}（請見 README.md）")
     return missing
- 
- 
+
+
 def main():
     cfg = Config()
     print("🎙️  錄音檔摘要機器人（免費版）\n" + "=" * 50)
     print(f"   Whisper 模型：{cfg.WHISPER_MODEL}（本地執行，完全免費）")
     print(f"   AI 摘要：Groq {cfg.GROQ_MODEL}（免費 API）\n")
- 
+
     missing = validate_config(cfg)
     if missing:
         print("❌ 以下設定未完成：")
@@ -707,7 +832,7 @@ def main():
             print(f"   • {m}")
         print("\n📖 詳細說明請看 README.md")
         sys.exit(1)
- 
+
     # 初始化模組
     print("🔌 連接 Google Drive...")
     drive       = GoogleDriveClient(cfg.GOOGLE_SERVICE_ACCOUNT_FILE)
@@ -715,7 +840,7 @@ def main():
     summarizer  = GroqSummaryGenerator(cfg.GROQ_API_KEY, cfg.GROQ_MODEL, cfg.SUMMARY_LANGUAGE)
     notion      = NotionClient(cfg.NOTION_TOKEN, cfg.NOTION_DATABASE_ID)
     tracker     = ProcessedFilesTracker(cfg.PROCESSED_CACHE)
- 
+
     # ── 從 Notion 同步已處理的檔案名稱（防止快取遺失時重複處理）────────────
     print("🔄 從 Notion 同步已處理記錄...")
     try:
@@ -761,16 +886,16 @@ def main():
         print(f"   ✓ Notion 已有 {len(_notion_filenames)} 個檔案，同步 {_synced} 筆新記錄")
     except Exception as _e:
         print(f"   ⚠️  Notion 同步失敗（不影響執行）：{_e}")
- 
+
     github: Optional[GitHubSyncer] = None
     if cfg.GITHUB_TOKEN and cfg.GITHUB_REPO:
         github = GitHubSyncer(cfg.GITHUB_TOKEN, cfg.GITHUB_REPO, cfg.GITHUB_BRANCH, cfg.GITHUB_FOLDER)
         print(f"🐙 GitHub 同步：{cfg.GITHUB_REPO}")
- 
+
     # 掃描 Google Drive（支援多個資料夾）
     folder_ids = cfg.folder_id_list
     print(f"\n📂 掃描 Google Drive（共 {len(folder_ids)} 個資料夾）...")
- 
+
     seen_ids  = set()
     all_files = []
     for fid in folder_ids:
@@ -790,16 +915,16 @@ def main():
                 seen_ids.add(f["id"])
                 all_files.append(f)
         print(f"      → 找到 {len(found)} 個音檔")
- 
+
     new_files = [f for f in all_files
                  if not tracker.is_processed(f["id"])
                  and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
- 
+
     if not new_files:
         print("\n✅ 沒有新的錄音檔，結束。")
         return
- 
+
     # 逐一處理
     print(f"\n{'─' * 50}")
     results = []
@@ -813,7 +938,7 @@ def main():
                 print(f"   剩餘 {len(new_files) - len(results)} 個，明天自動繼續。")
                 break
             raise
- 
+
     # 更新 GitHub 索引
     if github:
         try:
@@ -821,16 +946,92 @@ def main():
             print("\n🐙 GitHub 索引已更新")
         except Exception as e:
             print(f"\n⚠️  GitHub 索引更新失敗：{e}")
- 
-    ok  = sum(1 for r in results if r["ok"])
-    err = len(results) - ok
+
+    ok  = sum(1 for r in results if r.get("ok"))
+    err = sum(1 for r in results if not r.get("ok"))
     print(f"\n{'=' * 50}")
-    print(f"✅ 完成！成功 {ok} 個，失敗 {err} 個")
+    print(f"✅ 硬碟A 完成！成功 {ok} 個，失敗 {err} 個")
     if err:
         for r in results:
             if not r["ok"]:
                 print(f"   ❌ {r['file_name']}: {r.get('error','')}")
- 
- 
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # 處理雲端硬碟 B（用剩餘 Groq 額度，優先處理硬碟 A 後才執行）
+    # ──────────────────────────────────────────────────────────────────────────
+    drive_b_folders = cfg.drive_b_folder_id_list
+    if not drive_b_folders:
+        print("\n📂 未設定 DRIVE_B_FOLDER_IDS，跳過硬碟 B。")
+        return
+
+    if not cfg.NOTION_DATABASE_B_ID:
+        print("\n⚠️  未設定 NOTION_DATABASE_B_ID，跳過硬碟 B。")
+        return
+
+    # 建立指向「自己的逐字稿總覽」的 Notion 客戶端
+    notion_b = NotionClient(cfg.NOTION_TOKEN, cfg.NOTION_DATABASE_B_ID)
+
+    print(f"\n{'─' * 50}")
+    print(f"📂 [硬碟B] 掃描（共 {len(drive_b_folders)} 個資料夾）...")
+
+    tracker_b = ProcessedFilesTracker(cfg.DRIVE_B_PROCESSED_CACHE)
+
+    seen_b_ids = set()
+    all_b_files = []
+    for fid in drive_b_folders:
+        try:
+            folder_info = drive.service.files().get(fileId=fid, fields="name").execute()
+            label = f"{folder_info.get('name', fid)}（{fid}）"
+        except Exception:
+            label = fid
+        print(f"   🔍 [硬碟B] 掃描：{label}")
+        found = drive.list_all_audio_files(fid)
+        for f in found:
+            if f["id"] not in seen_b_ids:
+                seen_b_ids.add(f["id"])
+                all_b_files.append(f)
+        print(f"      → 找到 {len(found)} 個音檔")
+
+    # 過濾：已處理的 + 與硬碟A同名的直接跳過（不計入待處理）
+    new_b_files = [
+        f for f in all_b_files
+        if not tracker_b.is_processed(f["id"])
+        and not tracker_b.is_filename_processed(f["name"])
+        and not tracker.is_filename_processed(f["name"])  # tracker = 硬碟A
+    ]
+    same_name_count = sum(
+        1 for f in all_b_files
+        if tracker.is_filename_processed(f["name"])
+        and not tracker_b.is_processed(f["id"])
+    )
+    print(f"\n   合計 {len(all_b_files)} 個音檔，"
+          f"{len(new_b_files)} 個待處理，{same_name_count} 個與硬碟A同名跳過")
+
+    if not new_b_files:
+        print("\n✅ 硬碟B 沒有新的錄音檔，結束。")
+        return
+
+    print(f"\n{'─' * 50}")
+    results_b = []
+    for fi in new_b_files:
+        try:
+            result = process_drive_b_file(
+                fi, drive, transcriber, summarizer, notion_b,
+                tracker_b, tracker,
+            )
+            results_b.append(result)
+        except SystemExit as e:
+            if str(e) == "GROQ_DAILY_LIMIT":
+                print(f"\n⏸️  [硬碟B] 今日 Groq 免費額度用完，已處理 {len(results_b)} 個。")
+                print(f"   剩餘 {len(new_b_files) - len(results_b)} 個，明天自動繼續。")
+                break
+            raise
+
+    ok_b  = sum(1 for r in results_b if r.get("ok") and not r.get("skipped"))
+    err_b = sum(1 for r in results_b if not r.get("ok"))
+    print(f"\n{'=' * 50}")
+    print(f"✅ 硬碟B 完成！成功 {ok_b} 個，失敗 {err_b} 個")
+
+
 if __name__ == "__main__":
     main()
