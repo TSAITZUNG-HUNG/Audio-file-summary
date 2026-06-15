@@ -921,40 +921,39 @@ def main():
                  and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
 
-    if not new_files:
-        print("\n✅ 沒有新的錄音檔，結束。")
-        return
-
-    # 逐一處理
-    print(f"\n{'─' * 50}")
+    # 逐一處理硬碟A
     results = []
-    for fi in new_files:
-        try:
-            result = process_one_file(fi, drive, transcriber, summarizer, notion, github, tracker)
-            results.append(result)
-        except SystemExit as e:
-            if str(e) == "GROQ_DAILY_LIMIT":
-                print(f"\n⏸️  今日 Groq 免費額度用完，已處理 {len(results)} 個。")
-                print(f"   剩餘 {len(new_files) - len(results)} 個，明天自動繼續。")
-                break
-            raise
+    if not new_files:
+        print("\n✅ 硬碟A 沒有新的錄音檔。")
+    else:
+        print(f"\n{'─' * 50}")
+        for fi in new_files:
+            try:
+                result = process_one_file(fi, drive, transcriber, summarizer, notion, github, tracker)
+                results.append(result)
+            except SystemExit as e:
+                if str(e) == "GROQ_DAILY_LIMIT":
+                    print(f"\n⏸️  今日 Groq 免費額度用完，已處理 {len(results)} 個。")
+                    print(f"   剩餘 {len(new_files) - len(results)} 個，明天自動繼續。")
+                    break
+                raise
 
-    # 更新 GitHub 索引
-    if github:
-        try:
-            github.update_index(tracker.all_records())
-            print("\n🐙 GitHub 索引已更新")
-        except Exception as e:
-            print(f"\n⚠️  GitHub 索引更新失敗：{e}")
+        # 更新 GitHub 索引
+        if github:
+            try:
+                github.update_index(tracker.all_records())
+                print("\n🐙 GitHub 索引已更新")
+            except Exception as e:
+                print(f"\n⚠️  GitHub 索引更新失敗：{e}")
 
-    ok  = sum(1 for r in results if r.get("ok"))
-    err = sum(1 for r in results if not r.get("ok"))
-    print(f"\n{'=' * 50}")
-    print(f"✅ 硬碟A 完成！成功 {ok} 個，失敗 {err} 個")
-    if err:
-        for r in results:
-            if not r["ok"]:
-                print(f"   ❌ {r['file_name']}: {r.get('error','')}")
+        ok  = sum(1 for r in results if r.get("ok"))
+        err = sum(1 for r in results if not r.get("ok"))
+        print(f"\n{'=' * 50}")
+        print(f"✅ 硬碟A 完成！成功 {ok} 個，失敗 {err} 個")
+        if err:
+            for r in results:
+                if not r["ok"]:
+                    print(f"   ❌ {r['file_name']}: {r.get('error','')}")
 
     # ──────────────────────────────────────────────────────────────────────────
     # 處理雲端硬碟 B（用剩餘 Groq 額度，優先處理硬碟 A 後才執行）
