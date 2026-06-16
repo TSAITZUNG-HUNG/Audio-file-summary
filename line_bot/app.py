@@ -110,6 +110,21 @@ def _clear_session(user_id: str):
     _sessions.pop(user_id, None)
 
 
+# ── 硬碟B 解鎖狀態（輸入 zzz29663703 後啟用，12 小時內有效）──────────────────
+_unlocked_users: dict = {}   # { user_id: datetime }
+UNLOCK_TTL_HOURS = 12
+
+def _is_drive_b_unlocked(user_id: str) -> bool:
+    ts = _unlocked_users.get(user_id)
+    if ts and datetime.now() - ts < timedelta(hours=UNLOCK_TTL_HOURS):
+        return True
+    _unlocked_users.pop(user_id, None)
+    return False
+
+def _unlock_drive_b(user_id: str):
+    _unlocked_users[user_id] = datetime.now()
+
+
 # ════════════════════════════════════════════════════════════════════════════════
 # Google Drive 客戶端
 # ════════════════════════════════════════════════════════════════════════════════
@@ -475,13 +490,16 @@ def _fetch_summaries_from_db(database_id: str, max_pages: int = 400) -> list:
     return summaries
 
 
-def _handle_dual_drive_reply(reply_token: str, push_target: str):
+def _handle_dual_drive_reply(user_id: str, reply_token: str, push_target: str):
     """
     雙硬碟模式（zzz29663703）：
     分別從「逐字稿總覽」和「自己的逐字稿總覽」兩個資料庫讀取，分開顯示。
     第一則用免費 reply，其餘用 push。
     """
     try:
+        # 解鎖硬碟B推薦功能（12 小時內有效）
+        _unlock_drive_b(user_id)
+
         # 硬碟A：從原本的資料庫讀取
         drive_a = fetch_all_summaries_cached()
 
@@ -704,6 +722,15 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
                         exclude_ids: list = None, max_duration: float = None):
     try:
         summaries = fetch_all_summaries_cached()
+        # 若使用者已解鎖硬碟B，合併兩個資料庫一起推薦
+        if NOTION_DATABASE_B_ID and _is_drive_b_unlocked(user_id):
+            try:
+                drive_b = _fetch_summaries_from_db(NOTION_DATABASE_B_ID)
+                if drive_b:
+                    summaries = summaries + drive_b
+                    print(f"[推薦] 已合併硬碟B，總共 {len(summaries)} 筆資料。")
+            except Exception as e:
+                print(f"[推薦] 硬碟B 讀取失敗（繼續用硬碟A）：{e}")
         if not summaries:
             _push(push_target, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
             return
@@ -1164,7 +1191,7 @@ def handle_message(event):
 
     # ── 雙硬碟模式（管理員專屬，需標記機器人 + 輸入密鑰）──────────────────
     if text == "zzz29663703":
-        _handle_dual_drive_reply(reply_token, push_target)
+        _handle_dual_drive_reply(user_id, reply_token, push_target)
         return
 
     if text.startswith("/list"):
