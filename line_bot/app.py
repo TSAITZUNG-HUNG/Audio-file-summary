@@ -513,15 +513,13 @@ def _handle_dual_drive_reply(reply_token: str, push_target: str):
         messages += _build_list(drive_b, f"💿 【自己的逐字稿總覽】共 {len(drive_b)} 個：")
         messages.append("💡 若要取得音檔連結，請輸入 /list 後再選擇編號。")
 
-        # 第一則用 reply（免費），其餘用 push
+        # 最多 5 則用免費 reply，超過才用 push
+        reply_msgs = [TextMessage(text=m) for m in messages[:5]]
         with ApiClient(line_config) as api_client:
             MessagingApi(api_client).reply_message(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=[TextMessage(text=messages[0])]
-                )
+                ReplyMessageRequest(reply_token=reply_token, messages=reply_msgs)
             )
-        for m in messages[1:]:
+        for m in messages[5:]:
             _push(push_target, m)
 
     except Exception as e:
