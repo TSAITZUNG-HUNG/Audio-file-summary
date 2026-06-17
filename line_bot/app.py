@@ -159,34 +159,33 @@ def _search_ma_manual(question: str, top_n: int = 3) -> list[dict]:
     if not _MA_MANUAL:
         return []
 
-    # 從問題中萃取搜尋詞（去掉常見虛詞）
-    stop = {"的", "了", "嗎", "呢", "嗯", "是", "有", "沒有", "我", "你",
-            "請", "問", "什麼", "怎麼", "如何", "可以", "要", "不", "一"}
-    tokens = [c for c in re.split(r"[\s，。？！、]+", question) if c and c not in stop]
-    # 也加入連續2字的bigram
-    bigrams = []
-    q = question.replace(" ", "")
-    for i in range(len(q) - 1):
-        bigrams.append(q[i:i+2])
+    # 取出問題中所有 2~4 字的連續子字串（中文不用斷詞）
+    q = re.sub(r"[\s\W]+", "", question)   # 去掉空白與標點
+    # 過濾掉常見問句虛詞 ngram，避免干擾排序
+    _stop_ngrams = {"是什麼","什麼是","怎麼樣","如何做","可以嗎","有沒有",
+                    "是什","什麼","如何","怎麼","可以","有沒","沒有","請問",
+                    "是否","告訴","知道","想知","了解"}
+    ngrams = set()
+    for n in (2, 3, 4):
+        for i in range(len(q) - n + 1):
+            ng = q[i:i+n]
+            if ng not in _stop_ngrams:
+                ngrams.add(ng)
 
     candidates = []
     for chapter in _MA_MANUAL:
         ch_title = chapter.get("title", "")
         ch_url   = chapter.get("url", "")
+
+        # 章節標題 ngram 命中數（決定整章的基礎加分）
+        title_bonus = sum(10 for ng in ngrams if ng in ch_title)
+
         for para in chapter.get("paragraphs", []):
-            score = 0
-            # bigram 比對（每個 bigram 命中 +1）
-            for bg in bigrams:
-                if bg in para:
-                    score += 1
-            # token 命中加成（較長的詞更有意義）
-            for tok in tokens:
-                if len(tok) >= 2 and tok in para:
-                    score += len(tok)
-            # 章節標題命中加分
-            for tok in tokens:
-                if len(tok) >= 2 and tok in ch_title:
-                    score += 3
+            score = title_bonus
+            # 段落 ngram 命中（較長的 ngram 給更高分）
+            for ng in ngrams:
+                if ng in para:
+                    score += len(ng)   # 2字+2, 3字+3, 4字+4
             if score > 0:
                 candidates.append({
                     "chapter": ch_title,
@@ -195,7 +194,7 @@ def _search_ma_manual(question: str, top_n: int = 3) -> list[dict]:
                     "score": score,
                 })
 
-    # 排序，去除同章節內重複（每章最多取 1 個最高分段落）
+    # 排序，每章只取最高分那一段
     candidates.sort(key=lambda x: x["score"], reverse=True)
     seen_chapters = set()
     results = []
