@@ -43,9 +43,19 @@ LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 handler     = WebhookHandler(LINE_CHANNEL_SECRET)
 line_config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 
-GROQ_API_KEY  = os.environ["GROQ_API_KEY"]
-GROQ_MODEL    = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-groq_client   = Groq(api_key=GROQ_API_KEY)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# 支援逗號分隔的多個 Key，自動輪換
+_groq_keys = [k.strip() for k in os.environ["GROQ_API_KEY"].split(",") if k.strip()]
+_groq_key_index = 0
+
+def _get_groq_client() -> Groq:
+    """每次取得 Groq client，自動輪換 Key"""
+    global _groq_key_index
+    key = _groq_keys[_groq_key_index % len(_groq_keys)]
+    _groq_key_index += 1
+    return Groq(api_key=key)
+
+groq_client = _get_groq_client()  # 保留相容性
 
 NOTION_TOKEN          = os.environ["NOTION_TOKEN"]
 NOTION_DATABASE_ID    = os.environ["NOTION_DATABASE_ID"]
@@ -544,7 +554,7 @@ REASON5:推薦原因
     # 最多重試 3 次（429 rate limit 時等待後重試）
     for attempt in range(3):
         try:
-            resp = groq_client.chat.completions.create(
+            resp = _get_groq_client().chat.completions.create(
                 model=GROQ_MODEL,
                 max_tokens=600,
                 temperature=0.3,
