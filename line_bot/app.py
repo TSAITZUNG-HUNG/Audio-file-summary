@@ -895,8 +895,19 @@ def _fetch_drive_links(items: list) -> list:
     return items
 
 
-def _bg_handle_question(user_id: str, push_target: str, question: str,
-                        exclude_ids: list = None, max_duration: float = None):
+def _bg_handle_question(user_id: str, reply_or_push_target: str, question: str,
+                        exclude_ids: list = None, max_duration: float = None,
+                        use_reply: bool = False):
+    """
+    use_reply=True  → 同步呼叫，reply_or_push_target 為 reply_token，用免費 reply 回覆
+    use_reply=False → 非同步呼叫，reply_or_push_target 為 push_target，用 push 回覆（舊行為）
+    """
+    def _send(msg: str):
+        if use_reply:
+            _reply(reply_or_push_target, msg)
+        else:
+            _push(reply_or_push_target, msg)
+
     try:
         summaries = fetch_all_summaries_cached()
         # 若使用者已解鎖硬碟B，合併兩個資料庫一起推薦
@@ -909,7 +920,7 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
             except Exception as e:
                 print(f"[推薦] 硬碟B 讀取失敗（繼續用硬碟A）：{e}")
         if not summaries:
-            _push(push_target, "⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
+            _send("⚠️ Notion 資料庫目前沒有摘要，請先執行錄音檔摘要機器人產生摘要。")
             return
 
         # 篩選：排除已推薦過的 / 限制時長
@@ -921,16 +932,16 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
 
         if len(filtered) < 5:
             if max_duration is not None:
-                _push(push_target, f"😅 {max_duration:.0f} 分鐘以內的錄音檔不足 5 個，目前找到 {len(filtered)} 個。")
+                _send(f"😅 {max_duration:.0f} 分鐘以內的錄音檔不足 5 個，目前找到 {len(filtered)} 個。")
                 if not filtered:
                     return
             else:
-                _push(push_target, "😅 已沒有更多推薦，請重新輸入問題。")
+                _send("😅 已沒有更多推薦，請重新輸入問題。")
                 return
 
         items = recommend_transcripts(question, filtered)
         if not items:
-            _push(push_target, "😅 找不到合適的推薦，請換個方式描述您的需求。")
+            _send("😅 找不到合適的推薦，請換個方式描述您的需求。")
             return
 
         # 取得 Drive 連結
@@ -943,13 +954,14 @@ def _bg_handle_question(user_id: str, push_target: str, question: str,
             "state": "post_recommendation",
             "question": question,
             "shown_ids": all_shown,
-            "push_target": push_target,
+            "push_target": reply_or_push_target if not use_reply else "",
         })
 
-        _push(push_target, format_recommendations(items, question))
+        _send(format_recommendations(items, question))
 
     except Exception as e:
-        print(f"[BG] 問題處理錯誤：{e}")
+        print(f"[推薦] 問題處理錯誤：{e}")
+        _send(f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
         _push(push_target, f"❌ 處理時發生錯誤，請稍後再試。\n（{str(e)[:100]}）")
 
 
@@ -1395,25 +1407,19 @@ def handle_message(event):
     # ── 推薦後的快速指令 ──────────────────────────────────────────────────
     if session.get("state") == "post_recommendation":
         if text in ("再推薦5個", "再推薦 5 個", "換一批", "再推薦"):
-            question    = session.get("question", "")
-            shown_ids   = session.get("shown_ids", [])
+            question  = session.get("question", "")
+            shown_ids = session.get("shown_ids", [])
             _clear_session(user_id)
-            _reply(reply_token, "🔍 正在為您換一批推薦，請稍候...")
-            threading.Thread(target=_bg_handle_question,
-                             args=(user_id, push_target, question),
-                             kwargs={"exclude_ids": shown_ids},
-                             daemon=True).start()
+            _bg_handle_question(user_id, reply_token, question,
+                                exclude_ids=shown_ids, use_reply=True)
             return
 
         if text in ("太長了", "短一點", "30分鐘以內"):
             question  = session.get("question", "")
             shown_ids = session.get("shown_ids", [])
             _clear_session(user_id)
-            _reply(reply_token, "🔍 正在篩選 30 分鐘以內的錄音檔，請稍候...")
-            threading.Thread(target=_bg_handle_question,
-                             args=(user_id, push_target, question),
-                             kwargs={"exclude_ids": shown_ids, "max_duration": 30},
-                             daemon=True).start()
+            _bg_handle_question(user_id, reply_token, question,
+                                exclude_ids=shown_ids, max_duration=30, use_reply=True)
             return
 
     # ── 美安規章查詢（/美安規章 問題）────────────────────────────────────────
@@ -1428,10 +1434,9 @@ def handle_message(event):
         _handle_ma_reply(reply_token, query)
         return
 
-    # ── 新問題（一般 AI 推薦）────────────────────────────────────────────────
+    # ── 新問題（同步 AI 推薦，用免費 reply，不消耗 push 額度）────────────────
     _clear_session(user_id)
-    _reply(reply_token, "🔍 正在為您分析推薦中，\n通常需要 15～30 秒，請稍候...")
-    threading.Thread(target=_bg_handle_question, args=(user_id, push_target, text), daemon=True).start()
+    _bg_handle_question(user_id, reply_token, text, use_reply=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════════
