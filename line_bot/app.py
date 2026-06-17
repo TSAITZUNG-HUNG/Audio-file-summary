@@ -110,6 +110,129 @@ def _clear_session(user_id: str):
     _sessions.pop(user_id, None)
 
 
+# ════════════════════════════════════════════════════════════════════════════════
+# 美安手冊搜尋（完全免費，不呼叫任何 AI API）
+# ════════════════════════════════════════════════════════════════════════════════
+
+_MA_MANUAL: list = []          # 載入後存放在記憶體
+_MA_MANUAL_FILE = os.path.join(os.path.dirname(__file__), "ma_manual.json")
+
+# 觸發美安手冊搜尋的關鍵字（出現任一即視為美安相關問題）
+_MA_KEYWORDS = [
+    "美安", "超連鎖", "mpcp", "MPCP", "市場美安", "愛尚它",
+    "優惠顧客", "購物年金", "shop.com", "SHOP.COM",
+    "業績點數", "BV", "IBV", "管理業績", "紅利計畫",
+    "超連鎖店主", "成功五要訣", "雙軌", "全球會議聯盟",
+    "退貨", "訂購", "佣金", "推薦人", "授證", "加盟",
+    "unfranchise", "UnFranchise",
+]
+
+def _load_ma_manual():
+    """啟動時從 JSON 載入手冊到記憶體"""
+    global _MA_MANUAL
+    if not os.path.exists(_MA_MANUAL_FILE):
+        print(f"[MA手冊] 找不到 {_MA_MANUAL_FILE}，手冊搜尋功能停用。")
+        return
+    try:
+        with open(_MA_MANUAL_FILE, "r", encoding="utf-8") as f:
+            _MA_MANUAL = json.load(f)
+        total = sum(len(c.get("paragraphs", [])) for c in _MA_MANUAL)
+        print(f"[MA手冊] 載入 {len(_MA_MANUAL)} 章節，共 {total} 段落。")
+    except Exception as e:
+        print(f"[MA手冊] 載入失敗：{e}")
+
+_load_ma_manual()
+
+
+def _is_ma_question(text: str) -> bool:
+    """判斷是否為美安相關問題"""
+    t = text.lower()
+    return any(kw.lower() in t for kw in _MA_KEYWORDS)
+
+
+def _search_ma_manual(question: str, top_n: int = 3) -> list[dict]:
+    """
+    關鍵字比對搜尋手冊，回傳最相關的段落清單。
+    每個結果：{"chapter": str, "url": str, "paragraph": str, "score": int}
+    完全不使用 AI，0 成本。
+    """
+    if not _MA_MANUAL:
+        return []
+
+    # 從問題中萃取搜尋詞（去掉常見虛詞）
+    stop = {"的", "了", "嗎", "呢", "嗯", "是", "有", "沒有", "我", "你",
+            "請", "問", "什麼", "怎麼", "如何", "可以", "要", "不", "一"}
+    tokens = [c for c in re.split(r"[\s，。？！、]+", question) if c and c not in stop]
+    # 也加入連續2字的bigram
+    bigrams = []
+    q = question.replace(" ", "")
+    for i in range(len(q) - 1):
+        bigrams.append(q[i:i+2])
+
+    candidates = []
+    for chapter in _MA_MANUAL:
+        ch_title = chapter.get("title", "")
+        ch_url   = chapter.get("url", "")
+        for para in chapter.get("paragraphs", []):
+            score = 0
+            # bigram 比對（每個 bigram 命中 +1）
+            for bg in bigrams:
+                if bg in para:
+                    score += 1
+            # token 命中加成（較長的詞更有意義）
+            for tok in tokens:
+                if len(tok) >= 2 and tok in para:
+                    score += len(tok)
+            # 章節標題命中加分
+            for tok in tokens:
+                if len(tok) >= 2 and tok in ch_title:
+                    score += 3
+            if score > 0:
+                candidates.append({
+                    "chapter": ch_title,
+                    "url": ch_url,
+                    "paragraph": para,
+                    "score": score,
+                })
+
+    # 排序，去除同章節內重複（每章最多取 1 個最高分段落）
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    seen_chapters = set()
+    results = []
+    for c in candidates:
+        if c["chapter"] not in seen_chapters:
+            seen_chapters.add(c["chapter"])
+            results.append(c)
+        if len(results) >= top_n:
+            break
+    return results
+
+
+def _handle_ma_reply(reply_token: str, question: str):
+    """回覆美安手冊相關問題（完全免費，不呼叫 AI）"""
+    results = _search_ma_manual(question, top_n=3)
+    if not results:
+        _reply(reply_token,
+               "📖 抱歉，手冊中找不到相關資料。\n"
+               "您可以直接查閱完整手冊：\n"
+               "https://twn-chi.documents.unfranchise.com/")
+        return
+
+    lines = ["📖 根據美安超連鎖手冊：\n"]
+    for i, r in enumerate(results, 1):
+        # 截短段落到 200 字以內，避免 LINE 訊息太長
+        para = r["paragraph"]
+        if len(para) > 200:
+            para = para[:197] + "..."
+        lines.append(f"【{r['chapter']}】")
+        lines.append(para)
+        if i < len(results):
+            lines.append("")
+
+    lines.append(f"\n🔗 完整手冊：https://twn-chi.documents.unfranchise.com/")
+    _reply(reply_token, "\n".join(lines))
+
+
 # ── 硬碟B 解鎖狀態（輸入 zzz29663703 後啟用，12 小時內有效）──────────────────
 _unlocked_users: dict = {}   # { user_id: datetime }
 UNLOCK_TTL_HOURS = 12
@@ -1182,6 +1305,13 @@ def handle_message(event):
             "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
             "輸入編號取得音檔連結（支援多選：1,3,5）。\n\n"
             "══════════════════════\n\n"
+            "══════════════════════\n\n"
+            "📖 功能四：美安規章查詢\n"
+            "輸入 /美安規章 問題，Bot 從《超連鎖手冊》找答案，不消耗 AI 額度。\n\n"
+            "範例：\n"
+            "・/美安規章 退貨流程是什麼？\n"
+            "・/美安規章 MPCP 怎麼計算？\n"
+            "・/美安規章 優惠顧客計畫\n\n"
             "🔤 其他指令\n"
             "・使用手冊 — 顯示此說明\n"
             "・取消 — 取消目前操作\n\n"
@@ -1232,7 +1362,19 @@ def handle_message(event):
                              daemon=True).start()
             return
 
-    # ── 新問題 ────────────────────────────────────────────────────────────────
+    # ── 美安規章查詢（/美安規章 問題）────────────────────────────────────────
+    if text.startswith("/美安規章"):
+        query = text[5:].strip()
+        if not query:
+            _reply(reply_token,
+                   "📖 請在指令後輸入您的問題，例如：\n"
+                   "/美安規章 退貨流程是什麼？\n"
+                   "/美安規章 MPCP 怎麼計算？")
+            return
+        _handle_ma_reply(reply_token, query)
+        return
+
+    # ── 新問題（一般 AI 推薦）────────────────────────────────────────────────
     _clear_session(user_id)
     _reply(reply_token, "🔍 正在為您分析推薦中，\n通常需要 15～30 秒，請稍候...")
     threading.Thread(target=_bg_handle_question, args=(user_id, push_target, text), daemon=True).start()
