@@ -56,41 +56,91 @@ GOOGLE_SA_FILE = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.
 
 # 通關密碼（在 Render 環境變數 BOT_PASSWORD 設定，隨時可改）
 BOT_PASSWORD = os.environ.get("BOT_PASSWORD", "")
-# 已驗證的使用者 ID（存檔持久化，重啟後自動讀回）
-_AUTH_FILE = "/tmp/authorized_users.json"
+
+# ── GitHub 持久化授權名單 ──────────────────────────────────────────────────────
+# 授權名單存在 GitHub repo 的 line_bot/authorized_users.json
+# 每次有人通過密碼就自動寫回去，重新部署也不會遺失
+_GH_TOKEN  = os.environ.get("SUMMARY_GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
+_GH_REPO   = os.environ.get("GITHUB_REPO", "")        # 例如 "yourname/Audio-file-summary"
+_GH_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
+_GH_AUTH_PATH = "line_bot/authorized_users.json"       # repo 內的路徑
 
 def _pw_hash(pw: str) -> str:
     import hashlib
     return hashlib.sha256(pw.encode()).hexdigest()[:16]
 
+def _gh_headers() -> dict:
+    return {"Authorization": f"token {_GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+
 def _load_authorized_users() -> set:
-    """載入授權名單；若密碼已變更，自動清除所有舊授權"""
+    """從 GitHub 讀取授權名單；若密碼已變更自動清除"""
+    # 先嘗試從 GitHub 讀取
+    if _GH_TOKEN and _GH_REPO:
+        try:
+            url = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}?ref={_GH_BRANCH}"
+            resp = req_lib.get(url, headers=_gh_headers(), timeout=10)
+            if resp.status_code == 200:
+                import base64
+                content = base64.b64decode(resp.json()["content"]).decode()
+                data = json.loads(content)
+                stored_hash = data.get("pw_hash", "")
+                current_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
+                if stored_hash != current_hash:
+                    print("[Auth] 密碼已變更，清除所有舊授權名單")
+                    return set()
+                users = set(data.get("users", []))
+                print(f"[Auth] 從 GitHub 讀取 {len(users)} 個已授權使用者")
+                return users
+        except Exception as e:
+            print(f"[Auth] 從 GitHub 讀取失敗：{e}")
+    # 備援：從本地 /tmp 讀取（同一次部署期間有效）
     try:
+        _AUTH_FILE = "/tmp/authorized_users.json"
         if os.path.exists(_AUTH_FILE):
             with open(_AUTH_FILE, "r") as f:
                 data = json.load(f)
-            stored_hash = data.get("pw_hash", "")
-            current_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
-            if stored_hash != current_hash:
-                print("[Auth] 密碼已變更，清除所有舊授權名單")
-                return set()
             return set(data.get("users", []))
     except Exception:
         pass
     return set()
 
 def _save_authorized_users(users: set):
+    """同時寫回 GitHub（永久）與 /tmp（快取）"""
+    payload = {
+        "pw_hash": _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else "",
+        "users": list(users),
+    }
+    # 寫入本地快取
     try:
-        with open(_AUTH_FILE, "w") as f:
-            json.dump({
-                "pw_hash": _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else "",
-                "users": list(users),
-            }, f)
-    except Exception as e:
-        print(f"[Auth] 儲存失敗：{e}")
+        with open("/tmp/authorized_users.json", "w") as f:
+            json.dump(payload, f)
+    except Exception:
+        pass
+    # 寫回 GitHub（非同步，不阻塞 LINE 回覆）
+    if not (_GH_TOKEN and _GH_REPO):
+        return
+    def _push():
+        try:
+            import base64
+            url = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}"
+            # 先取得現有檔案的 sha（更新需要）
+            r = req_lib.get(url, headers=_gh_headers(), timeout=10)
+            sha = r.json().get("sha", "") if r.status_code == 200 else ""
+            body = {
+                "message": "chore: update authorized users",
+                "content": base64.b64encode(json.dumps(payload, ensure_ascii=False).encode()).decode(),
+                "branch": _GH_BRANCH,
+            }
+            if sha:
+                body["sha"] = sha
+            req_lib.put(url, headers=_gh_headers(), json=body, timeout=10)
+            print(f"[Auth] 已將授權名單寫回 GitHub（{len(users)} 人）")
+        except Exception as e:
+            print(f"[Auth] 寫回 GitHub 失敗：{e}")
+    threading.Thread(target=_push, daemon=True).start()
 
 _authorized_users: set = _load_authorized_users()
-print(f"[Auth] 載入 {len(_authorized_users)} 個已授權使用者")
+print(f"[Auth] 共 {len(_authorized_users)} 個已授權使用者")
 
 # ── In-memory Session ────────────────────────────────────────────────────────
 _sessions: dict = {}
