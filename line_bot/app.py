@@ -209,27 +209,32 @@ def _search_ma_manual(question: str, top_n: int = 3) -> list[dict]:
 
 def _handle_ma_reply(reply_token: str, question: str):
     """回覆美安手冊相關問題（完全免費，不呼叫 AI）"""
-    results = _search_ma_manual(question, top_n=3)
+    results = _search_ma_manual(question, top_n=1)
     if not results:
         _reply(reply_token,
-               "📖 抱歉，手冊中找不到相關資料。\n"
-               "您可以直接查閱完整手冊：\n"
+               "📖 手冊中找不到相關資料。\n\n"
+               "請直接查閱完整手冊：\n"
                "https://twn-chi.documents.unfranchise.com/")
         return
 
-    lines = ["📖 根據美安超連鎖手冊：\n"]
-    for i, r in enumerate(results, 1):
-        # 截短段落到 200 字以內，避免 LINE 訊息太長
-        para = r["paragraph"]
-        if len(para) > 200:
-            para = para[:197] + "..."
-        lines.append(f"【{r['chapter']}】")
-        lines.append(para)
-        if i < len(results):
-            lines.append("")
+    r = results[0]
+    para = r["paragraph"]
 
-    lines.append(f"\n🔗 完整手冊：https://twn-chi.documents.unfranchise.com/")
-    _reply(reply_token, "\n".join(lines))
+    # 只取到第一個句號/換行為止，最多 120 字
+    for sep in ("。", "；", "\n"):
+        idx = para.find(sep)
+        if 0 < idx <= 120:
+            para = para[:idx + 1]
+            break
+    if len(para) > 120:
+        para = para[:120] + "..."
+
+    msg = (
+        f"📖 {r['chapter']}\n\n"
+        f"{para}\n\n"
+        f"👉 詳細內容：{r['url']}"
+    )
+    _reply(reply_token, msg)
 
 
 # ── 硬碟B 解鎖狀態（輸入 zzz29663703 後啟用，12 小時內有效）──────────────────
