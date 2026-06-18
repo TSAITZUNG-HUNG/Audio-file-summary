@@ -193,13 +193,23 @@ class ProcessedFilesTracker:
         return file_id in self.data
 
     def is_filename_processed(self, file_name: str) -> bool:
-        """檢查是否已有相同檔名的記錄（比對時忽略副檔名，避免 .mp3/.m4a 差異造成漏判）"""
+        """檢查是否已有相同檔名的記錄（比對時忽略副檔名，避免 .mp3/.m4a 差異造成漏判）
+        注意：若所有匹配記錄都標記為 notion_page_inaccessible，視為未處理，讓 bot 重新建立新頁面。
+        """
         stem = Path(file_name).stem
+        matched_records = []
         for record in self.data.values():
             rec_name = record.get("file_name", "")
             if rec_name == file_name or Path(rec_name).stem == stem:
-                return True
-        return False
+                matched_records.append(record)
+        if not matched_records:
+            return False
+        # notion_sync_ 記錄只是「Notion 同步過來的佔位符」，不算真正有效的處理記錄
+        # 若去掉 notion_sync_ 佔位符後，剩下的記錄全部都是不可存取的舊頁面，視為未處理
+        real_records = [r for r in matched_records if not r.get("processed_at") == "synced_from_notion"]
+        if real_records and all(r.get("notion_page_inaccessible") for r in real_records):
+            return False
+        return True
 
     def mark_processed(self, file_id: str, metadata: dict):
         self.data[file_id] = {**metadata, "processed_at": datetime.now().isoformat()}
