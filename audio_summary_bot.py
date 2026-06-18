@@ -198,9 +198,11 @@ class ProcessedFilesTracker:
         return file_id in self.data
 
     def is_filename_processed(self, file_name: str) -> bool:
-        """檢查是否已有相同檔名的記錄（避免不同資料夾的同名檔案重複處理）"""
+        """檢查是否已有相同檔名的記錄（比對時忽略副檔名，避免 .mp3/.m4a 差異造成漏判）"""
+        stem = Path(file_name).stem
         for record in self.data.values():
-            if record.get("file_name") == file_name:
+            rec_name = record.get("file_name", "")
+            if rec_name == file_name or Path(rec_name).stem == stem:
                 return True
         return False
 
