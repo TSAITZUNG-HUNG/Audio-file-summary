@@ -101,19 +101,98 @@ class Config:
 # ════════════════════════════════════════════════════════════════════════════════
 
 class ProcessedFilesTracker:
-    def __init__(self, cache_file: str):
+    def __init__(self, cache_file: str, gh_path: str = ""):
+        """
+        cache_file: 本地 JSON 路徑（GitHub Actions cache 用）
+        gh_path:    GitHub repo 內路徑，設定後會從 GitHub 讀取並備份（避免 cache 過期）
+        """
         self.cache_file = cache_file
+        self.gh_path = gh_path
         self.data: dict = self._load()
 
+    # ── GitHub 備份讀寫 ──────────────────────────────────────────────────────
+    @staticmethod
+    def _gh_headers() -> dict:
+        token = os.environ.get("GITHUB_TOKEN", "")
+        return {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+
+    def _gh_url(self) -> str:
+        repo = os.environ.get("GITHUB_REPO", "")
+        branch = os.environ.get("GITHUB_BRANCH", "main")
+        return f"https://api.github.com/repos/{repo}/contents/{self.gh_path}?ref={branch}"
+
+    def _load_from_github(self) -> dict:
+        """從 GitHub 讀取 tracker JSON（若 GitHub 裡有更新的版本）"""
+        try:
+            import urllib.request as _urllib
+            import base64
+            req = _urllib.Request(self._gh_url(), headers=self._gh_headers())
+            with _urllib.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read())
+                content = base64.b64decode(body["content"]).decode("utf-8")
+                return json.loads(content)
+        except Exception:
+            return {}
+
+    def _save_to_github(self):
+        """非同步把 tracker JSON 推到 GitHub（背景執行，不阻塞主流程）"""
+        import threading, base64, urllib.request as _urllib
+
+        def _push():
+            try:
+                url_no_ref = self._gh_url().split("?")[0]
+                repo = os.environ.get("GITHUB_REPO", "")
+                branch = os.environ.get("GITHUB_BRANCH", "main")
+                api_url = f"https://api.github.com/repos/{repo}/contents/{self.gh_path}"
+                # 取現有 SHA（PUT 需要 sha 才能更新）
+                req = _urllib.Request(api_url + f"?ref={branch}", headers=self._gh_headers())
+                try:
+                    with _urllib.urlopen(req, timeout=10) as r:
+                        sha = json.loads(r.read()).get("sha", "")
+                except Exception:
+                    sha = ""
+                encoded = base64.b64encode(
+                    json.dumps(self.data, ensure_ascii=False, indent=2).encode()
+                ).decode()
+                body = json.dumps({
+                    "message": f"chore: update {self.gh_path}",
+                    "content": encoded,
+                    "branch": branch,
+                    **({"sha": sha} if sha else {}),
+                }).encode()
+                put_req = _urllib.Request(api_url, data=body, headers={
+                    **self._gh_headers(), "Content-Type": "application/json"
+                }, method="PUT")
+                with _urllib.urlopen(put_req, timeout=15):
+                    pass
+            except Exception as e:
+                print(f"[Tracker] GitHub 備份失敗（繼續執行）：{e}")
+
+        threading.Thread(target=_push, daemon=True).start()
+
+    # ── 本地讀寫 ────────────────────────────────────────────────────────────
     def _load(self) -> dict:
+        local_data: dict = {}
         if os.path.exists(self.cache_file):
-            with open(self.cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return {}
+            try:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    local_data = json.load(f)
+            except Exception:
+                pass
+        # 若有設定 gh_path，再從 GitHub 讀一份做合併（取最多記錄的那份）
+        if self.gh_path and os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+            gh_data = self._load_from_github()
+            if len(gh_data) > len(local_data):
+                print(f"[Tracker] GitHub 版本較新（{len(gh_data)} 筆 > 本地 {len(local_data)} 筆），使用 GitHub 版本")
+                local_data = {**local_data, **gh_data}  # 合併，以 GitHub 版為主
+        return local_data
 
     def _save(self):
         with open(self.cache_file, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
+        # 同步推到 GitHub（背景）
+        if self.gh_path and os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+            self._save_to_github()
 
     def is_processed(self, file_id: str) -> bool:
         return file_id in self.data
@@ -973,7 +1052,10 @@ def main():
     print(f"\n{'─' * 50}")
     print(f"📂 [硬碟B] 掃描（共 {len(drive_b_folders)} 個資料夾）...")
 
-    tracker_b = ProcessedFilesTracker(cfg.DRIVE_B_PROCESSED_CACHE)
+    tracker_b = ProcessedFilesTracker(
+        cfg.DRIVE_B_PROCESSED_CACHE,
+        gh_path="processed_files_b.json",  # GitHub 備份，避免 Actions cache 過期後重複上傳
+    )
 
     seen_b_ids = set()
     all_b_files = []
@@ -992,12 +1074,16 @@ def main():
         print(f"      → 找到 {len(found)} 個音檔")
 
     # 過濾：已處理的 + 與硬碟A同名的直接跳過（不計入待處理）
-    new_b_files = [
-        f for f in all_b_files
-        if not tracker_b.is_processed(f["id"])
-        and not tracker_b.is_filename_processed(f["name"])
-        and not tracker.is_filename_processed(f["name"])  # tracker = 硬碟A
-    ]
+    # 同時對「尚未處理的檔案」按檔名去重，避免同名不同 ID 的檔案在同一次 run 重複上傳
+    _seen_new_b_names: set = set()
+    new_b_files = []
+    for f in all_b_files:
+        if (not tracker_b.is_processed(f["id"])
+                and not tracker_b.is_filename_processed(f["name"])
+                and not tracker.is_filename_processed(f["name"])  # tracker = 硬碟A
+                and f["name"] not in _seen_new_b_names):
+            _seen_new_b_names.add(f["name"])
+            new_b_files.append(f)
     same_name_count = sum(
         1 for f in all_b_files
         if tracker.is_filename_processed(f["name"])
