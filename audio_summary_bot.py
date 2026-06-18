@@ -135,40 +135,35 @@ class ProcessedFilesTracker:
             return {}
 
     def _save_to_github(self):
-        """非同步把 tracker JSON 推到 GitHub（背景執行，不阻塞主流程）"""
-        import threading, base64, urllib.request as _urllib
-
-        def _push():
+        """同步把 tracker JSON 推到 GitHub（確保 GitHub Actions 結束前完成寫入）"""
+        import base64, urllib.request as _urllib
+        try:
+            repo = os.environ.get("GITHUB_REPO", "")
+            branch = os.environ.get("GITHUB_BRANCH", "main")
+            api_url = f"https://api.github.com/repos/{repo}/contents/{self.gh_path}"
+            # 取現有 SHA（PUT 需要 sha 才能更新）
+            req = _urllib.Request(api_url + f"?ref={branch}", headers=self._gh_headers())
             try:
-                url_no_ref = self._gh_url().split("?")[0]
-                repo = os.environ.get("GITHUB_REPO", "")
-                branch = os.environ.get("GITHUB_BRANCH", "main")
-                api_url = f"https://api.github.com/repos/{repo}/contents/{self.gh_path}"
-                # 取現有 SHA（PUT 需要 sha 才能更新）
-                req = _urllib.Request(api_url + f"?ref={branch}", headers=self._gh_headers())
-                try:
-                    with _urllib.urlopen(req, timeout=10) as r:
-                        sha = json.loads(r.read()).get("sha", "")
-                except Exception:
-                    sha = ""
-                encoded = base64.b64encode(
-                    json.dumps(self.data, ensure_ascii=False, indent=2).encode()
-                ).decode()
-                body = json.dumps({
-                    "message": f"chore: update {self.gh_path}",
-                    "content": encoded,
-                    "branch": branch,
-                    **({"sha": sha} if sha else {}),
-                }).encode()
-                put_req = _urllib.Request(api_url, data=body, headers={
-                    **self._gh_headers(), "Content-Type": "application/json"
-                }, method="PUT")
-                with _urllib.urlopen(put_req, timeout=15):
-                    pass
-            except Exception as e:
-                print(f"[Tracker] GitHub 備份失敗（繼續執行）：{e}")
-
-        threading.Thread(target=_push, daemon=True).start()
+                with _urllib.urlopen(req, timeout=10) as r:
+                    sha = json.loads(r.read()).get("sha", "")
+            except Exception:
+                sha = ""
+            encoded = base64.b64encode(
+                json.dumps(self.data, ensure_ascii=False, indent=2).encode()
+            ).decode()
+            body = json.dumps({
+                "message": f"chore: update {self.gh_path}",
+                "content": encoded,
+                "branch": branch,
+                **({"sha": sha} if sha else {}),
+            }).encode()
+            put_req = _urllib.Request(api_url, data=body, headers={
+                **self._gh_headers(), "Content-Type": "application/json"
+            }, method="PUT")
+            with _urllib.urlopen(put_req, timeout=15):
+                pass
+        except Exception as e:
+            print(f"[Tracker] GitHub 備份失敗（繼續執行）：{e}")
 
     # ── 本地讀寫 ────────────────────────────────────────────────────────────
     def _load(self) -> dict:
