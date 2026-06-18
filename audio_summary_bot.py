@@ -738,7 +738,14 @@ def sync_folder_updates(
             tracker.data[key]["folder_name"] = current_folder
             updated += 1
         except Exception as e:
-            print(f"      ⚠️  更新失敗：{e}")
+            err_str = str(e)
+            if "404" in err_str:
+                # 頁面不可存取（舊 token 建立），更新 tracker 停止重試，但不動 Notion
+                print(f"      ℹ️  Notion 頁面無法存取（可能由舊 token 建立），僅更新本地記錄")
+                tracker.data[key]["folder_name"] = current_folder
+                updated += 1
+            else:
+                print(f"      ⚠️  更新失敗：{e}")
 
     if updated:
         tracker._save()
