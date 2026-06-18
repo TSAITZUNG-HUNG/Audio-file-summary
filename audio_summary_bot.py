@@ -706,8 +706,25 @@ def sync_folder_updates(
         id_to_folder[f["id"]] = folder
         stem_to_folder[Path(f["name"]).stem] = folder
 
+    # 建立「已知不可存取」的檔名集合，供 notion_sync_ key 跳過用
+    inaccessible_stems: set = set()
+    for _rec in tracker.data.values():
+        if _rec.get("notion_page_inaccessible"):
+            _fn = _rec.get("file_name", "")
+            if _fn:
+                inaccessible_stems.add(Path(_fn).stem)
+
     updated = 0
     for key, record in tracker.data.items():
+        # 已標記為不可存取的頁面，直接跳過不再重試
+        if record.get("notion_page_inaccessible"):
+            continue
+        # notion_sync_ key：若同名檔案已知不可存取，也跳過
+        if key.startswith("notion_sync_"):
+            _fn = record.get("file_name", "")
+            if Path(_fn).stem in inaccessible_stems:
+                continue
+
         stored_folder = record.get("folder_name", "")
         notion_url    = record.get("notion_url", "")
         file_name     = record.get("file_name", "")
@@ -735,9 +752,10 @@ def sync_folder_updates(
         except Exception as e:
             err_str = str(e)
             if "404" in err_str:
-                # 頁面不可存取（舊 token 建立），更新 tracker 停止重試，但不動 Notion
-                print(f"      ℹ️  Notion 頁面無法存取（可能由舊 token 建立），僅更新本地記錄")
+                # 頁面不可存取（舊 token 建立），標記永久跳過，更新 folder_name 避免下次比對
+                print(f"      ℹ️  Notion 頁面無法存取（可能由舊 token 建立），標記跳過")
                 tracker.data[key]["folder_name"] = current_folder
+                tracker.data[key]["notion_page_inaccessible"] = True
                 updated += 1
             else:
                 print(f"      ⚠️  更新失敗：{e}")
