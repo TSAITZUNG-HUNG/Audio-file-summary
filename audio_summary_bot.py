@@ -1007,7 +1007,7 @@ def main():
     transcriber = LocalWhisperTranscriber(cfg.WHISPER_MODEL, cfg.WHISPER_LANGUAGE)
     summarizer  = GroqSummaryGenerator(cfg.GROQ_API_KEY, cfg.GROQ_MODEL, cfg.SUMMARY_LANGUAGE)
     notion      = NotionClient(cfg.NOTION_TOKEN, cfg.NOTION_DATABASE_ID)
-    tracker     = ProcessedFilesTracker(cfg.PROCESSED_CACHE)
+    tracker     = ProcessedFilesTracker(cfg.PROCESSED_CACHE, gh_path="processed_files.json")
 
     # ── 從 Notion 同步已處理的檔案名稱（防止快取遺失時重複處理）────────────
     print("🔄 從 Notion 同步已處理記錄...")
