@@ -663,6 +663,91 @@ class NotionClient:
         notion_url = f"https://www.notion.so/{page_id_clean}"
         return notion_url, raw_page_id
 
+    def update_folder(self, page_id: str, folder_name: str):
+        """更新 Notion 頁面的「資料夾」欄位（頁面移動後同步用）"""
+        url = f"{self.BASE_URL}/pages/{page_id}"
+        payload = {
+            "properties": {
+                "資料夾": {"rich_text": [{"type": "text", "text": {"content": folder_name[:500]}}]},
+            }
+        }
+        resp = self._req.patch(url, headers=self.headers, json=payload, timeout=15)
+        resp.raise_for_status()
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 資料夾移動偵測 & Notion 同步
+# ════════════════════════════════════════════════════════════════════════════════
+
+def _notion_url_to_page_id(notion_url: str) -> str:
+    """從 Notion URL 取出含 dash 格式的 page ID"""
+    path = notion_url.split("?")[0].rstrip("/")
+    last = path.split("/")[-1]
+    # 移除標題前綴，取最後 32 個 hex 字元
+    hex_only = re.sub(r"[^0-9a-fA-F]", "", last)
+    raw = hex_only[-32:] if len(hex_only) >= 32 else ""
+    if len(raw) == 32:
+        return f"{raw[:8]}-{raw[8:12]}-{raw[12:16]}-{raw[16:20]}-{raw[20:]}"
+    return ""
+
+
+def sync_folder_updates(
+    all_files:   list,
+    tracker:     "ProcessedFilesTracker",
+    drive:       "GoogleDriveClient",
+    notion:      "NotionClient",
+    drive_label: str = "硬碟A",
+) -> int:
+    """
+    比對 Google Drive 現有資料夾 vs tracker 記錄，
+    若檔案已被移到其他資料夾，則更新 Notion 的「資料夾」欄位。
+    回傳更新筆數。
+    """
+    # 建立 file_id → current_folder 對照表
+    id_to_folder:   dict = {}
+    stem_to_folder: dict = {}   # 給 notion_ 前綴的 key 用（只有 stem，沒有 drive ID）
+    for f in all_files:
+        folder = drive.get_folder_name(f)
+        id_to_folder[f["id"]] = folder
+        stem_to_folder[Path(f["name"]).stem] = folder
+
+    updated = 0
+    for key, record in tracker.data.items():
+        stored_folder = record.get("folder_name", "")
+        notion_url    = record.get("notion_url", "")
+        file_name     = record.get("file_name", "")
+
+        # 找出目前的資料夾
+        if key.startswith("notion_"):
+            # 從 rebuild 腳本產生的 key，用 stem 比對
+            stem = Path(file_name).stem
+            current_folder = stem_to_folder.get(stem, "")
+        else:
+            current_folder = id_to_folder.get(key, "")
+
+        if not current_folder or current_folder == stored_folder:
+            continue  # 找不到（可能已刪除）或資料夾未變
+
+        page_id = _notion_url_to_page_id(notion_url)
+        if not page_id:
+            continue
+
+        print(f"   📁 [{drive_label}] {file_name}：{stored_folder or '（未知）'} → {current_folder}")
+        try:
+            notion.update_folder(page_id, current_folder)
+            tracker.data[key]["folder_name"] = current_folder
+            updated += 1
+        except Exception as e:
+            print(f"      ⚠️  更新失敗：{e}")
+
+    if updated:
+        tracker._save()
+        print(f"   ✅ [{drive_label}] 已更新 {updated} 個資料夾記錄")
+    else:
+        print(f"   ✅ [{drive_label}] 所有資料夾均未變動")
+
+    return updated
+
 
 # ════════════════════════════════════════════════════════════════════════════════
 # GitHub 同步器
@@ -1002,6 +1087,10 @@ def main():
                  and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
 
+    # ── 資料夾移動偵測（硬碟A）──────────────────────────────────────────────
+    print("\n🔄 偵測硬碟A 資料夾變動...")
+    sync_folder_updates(all_files, tracker, drive, notion, drive_label="硬碟A")
+
     # 逐一處理硬碟A
     results = []
     if not new_files:
@@ -1093,6 +1182,10 @@ def main():
     )
     print(f"\n   合計 {len(all_b_files)} 個音檔，"
           f"{len(new_b_files)} 個待處理，{same_name_count} 個與硬碟A同名跳過")
+
+    # ── 資料夾移動偵測（硬碟B）──────────────────────────────────────────────
+    print("\n🔄 偵測硬碟B 資料夾變動...")
+    sync_folder_updates(all_b_files, tracker_b, drive, notion_b, drive_label="硬碟B")
 
     if not new_b_files:
         print("\n✅ 硬碟B 沒有新的錄音檔，結束。")
