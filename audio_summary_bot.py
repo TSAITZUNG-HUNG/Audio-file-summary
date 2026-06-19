@@ -174,12 +174,13 @@ class ProcessedFilesTracker:
                     local_data = json.load(f)
             except Exception:
                 pass
-        # 若有設定 gh_path，再從 GitHub 讀一份做合併（取最多記錄的那份）
+        # 若有設定 gh_path，從 GitHub 讀取並永遠以 GitHub 版為主（避免本地快取蓋過手動清理）
         if self.gh_path and os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
-            gh_data = self._load_from_github()
-            if len(gh_data) > len(local_data):
-                print(f"[Tracker] GitHub 版本較新（{len(gh_data)} 筆 > 本地 {len(local_data)} 筆），使用 GitHub 版本")
-                local_data = {**local_data, **gh_data}  # 合併，以 GitHub 版為主
+          gh_data = self._load_from_github()
+          if gh_data is not None:
+            if len(gh_data) != len(local_data):
+              print(f"[Tracker] 使用 GitHub 版本（{len(gh_data)} 筆，本地 {len(local_data)} 筆）")
+              local_data = gh_data  # 永遠以 GitHub 版取代本地，不做合併
         return local_data
 
     def _save(self):
