@@ -176,11 +176,11 @@ class ProcessedFilesTracker:
                 pass
         # 若有設定 gh_path，從 GitHub 讀取並永遠以 GitHub 版為主（避免本地快取蓋過手動清理）
         if self.gh_path and os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
-          gh_data = self._load_from_github()
-          if gh_data is not None:
-            if len(gh_data) != len(local_data):
-              print(f"[Tracker] 使用 GitHub 版本（{len(gh_data)} 筆，本地 {len(local_data)} 筆）")
-              local_data = gh_data  # 永遠以 GitHub 版取代本地，不做合併
+            gh_data = self._load_from_github()
+            if gh_data is not None:
+                if len(gh_data) != len(local_data):
+                    print(f"[Tracker] 使用 GitHub 版本（{len(gh_data)} 筆，本地 {len(local_data)} 筆）")
+                local_data = gh_data  # 永遠以 GitHub 版取代本地，不做合併
         return local_data
 
     def _save(self):
@@ -1178,6 +1178,50 @@ def main():
         cfg.DRIVE_B_PROCESSED_CACHE,
         gh_path="processed_files_b.json",  # GitHub 備份，避免 Actions cache 過期後重複上傳
     )
+
+    # ── 從 Notion 同步硬碟B已處理的檔案名稱（防止 tracker 遺失時重複處理）──────
+    print("🔄 從 Notion 同步硬碟B已處理記錄...")
+    try:
+        import requests as _req2
+        _headers_b = {
+            "Authorization": f"Bearer {cfg.NOTION_TOKEN}",
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+        }
+        _has_more_b, _cursor_b = True, None
+        _notion_b_filenames = set()
+        while _has_more_b:
+            _body_b = {"page_size": 100}
+            if _cursor_b:
+                _body_b["start_cursor"] = _cursor_b
+            _resp_b = _req2.post(
+                f"https://api.notion.com/v1/databases/{cfg.NOTION_DATABASE_B_ID}/query",
+                headers=_headers_b, json=_body_b, timeout=15
+            )
+            if _resp_b.status_code == 200:
+                _data_b = _resp_b.json()
+                for _page_b in _data_b.get("results", []):
+                    if _page_b.get("archived") or _page_b.get("in_trash"):
+                        continue
+                    _rt_b = _page_b.get("properties", {}).get("檔案名稱", {}).get("rich_text", [])
+                    _fname_b = "".join(r.get("plain_text", "") for r in _rt_b)
+                    if _fname_b:
+                        _notion_b_filenames.add(_fname_b)
+                _has_more_b = _data_b.get("has_more", False)
+                _cursor_b   = _data_b.get("next_cursor")
+            else:
+                break
+        _synced_b = 0
+        for _fname_b in _notion_b_filenames:
+            _fake_id_b = f"notion_sync_{_fname_b}"
+            if not tracker_b.is_processed(_fake_id_b) and not tracker_b.is_filename_processed(_fname_b):
+                tracker_b.data[_fake_id_b] = {"file_name": _fname_b, "processed_at": "synced_from_notion"}
+                _synced_b += 1
+        if _synced_b:
+            tracker_b._save()
+        print(f"   ✓ 硬碟B Notion 已有 {len(_notion_b_filenames)} 個檔案，同步 {_synced_b} 筆新記錄")
+    except Exception as _e_b:
+        print(f"   ⚠️  硬碟B Notion 同步失敗（不影響執行）：{_e_b}")
 
     seen_b_ids = set()
     all_b_files = []
