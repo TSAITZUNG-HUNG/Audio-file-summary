@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-07-08 09:39:15
+> 最後更新：2026-07-08 10:11:52
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -42,6 +42,9 @@
 | 宜馨-跟蘿拉討論定位、目標.m4a |  | 0分 | synced_fro | [Notion]() |
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
+| 阿堯智凱ABC復盤.m4a | ABC實戰 | 24分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081bdb068ea8ec142cb5a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E9%98%BF%E5%A0%AF%E6%99%BA%E5%87%B1ABC%E5%BE%A9%E7%9B%A4.md) |
+| 以好朋友立場講真心話＆心態正確遇到挫折才不會偏掉.m4a | 邀約互動 | 7分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590814081a8cba2264e54c0) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E4%BB%A5%E5%A5%BD%E6%9C%8B%E5%8F%8B%E7%AB%8B%E5%A0%B4%E8%AC%9B%E7%9C%9F%E5%BF%83%E8%A9%B1_%E5%BF%83%E6%85%8B%E6%AD%A3%E7%A2%BA%E9%81%87%E5%88%B0%E6%8C%AB%E6%8A%98%E6%89%8D%E4%B8%8D%E6%9C%83%E5%81%8F%E6%8E%89.md) |
+| 阿堯昌薇ABC復盤.m4a | 心態成長 | 26分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a4ae87e25e09358189) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E9%98%BF%E5%A0%AF%E6%98%8C%E8%96%87ABC%E5%BE%A9%E7%9B%A4.md) |
 | Sindy想要停自購討論.m4a | 復盤帶人領導 | 2分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081b586fbed5c8bebb31a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_Sindy%E6%83%B3%E8%A6%81%E5%81%9C%E8%87%AA%E8%B3%BC%E8%A8%8E%E8%AB%96.md) |
 | 帶著夥伴梳理自己.m4a | 復盤帶人領導 | 31分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081498bdbcc5083d8596c) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E5%B8%B6%E8%91%97%E5%A4%A5%E4%BC%B4%E6%A2%B3%E7%90%86%E8%87%AA%E5%B7%B1.md) |
 | Sky哥討論互動調整&討論.m4a | 復盤帶人領導 | 4分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a5a954e37d3e40c35a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_Sky%E5%93%A5%E8%A8%8E%E8%AB%96%E4%BA%92%E5%8B%95%E8%AA%BF%E6%95%B4_%E8%A8%8E%E8%AB%96.md) |
@@ -86,7 +89,7 @@
 | 讓Ｂ了解Ａ的作用 ＆ 想著沒做起來就是腦袋有東西沒想通.m4a | 通話錄音群組 | 18分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590814d960efff3d6f00643) |
 | 左十右十的小leader目標設定.m4a | 通話錄音群組 | 17分 | 2026-06-02 | [Notion](https://www.notion.so/37323f4985908121b267e5f13a069e28) |
 | 當Ａ沒有準備好一天 ＆ A的目的.m4a | 通話錄音群組 | 22分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590814eaec9f7a667d8c420) |
-| IDEA社團說明.m4a | 通話錄音群組 | 1分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590811d8c2dfcb1a066c39a) |
+| IDEA社團說明.m4a | 心態成長 | 1分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590811d8c2dfcb1a066c39a) |
 | 與玟婷第二次合作abc討論-2.m4a | 通話錄音群組 | 6分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590818ab147e373dd7f8ed9) |
 | 與玟婷第二次合作abc討論-1.m4a | 通話錄音群組 | 1分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590815ba560caec97462e54) |
 | 在經營安麗朋友堅持要約他們leader的酒吧.m4a | 通話錄音群組 | 22分 | 2026-06-02 | [Notion](https://www.notion.so/37323f49859081ff93c0f463eff7ce7e) |
