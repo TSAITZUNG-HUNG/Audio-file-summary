@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-06-19 09:55:52
+> 最後更新：2026-07-08 09:39:15
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -42,6 +42,11 @@
 | 宜馨-跟蘿拉討論定位、目標.m4a |  | 0分 | synced_fro | [Notion]() |
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
+| Sindy想要停自購討論.m4a | 復盤帶人領導 | 2分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081b586fbed5c8bebb31a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_Sindy%E6%83%B3%E8%A6%81%E5%81%9C%E8%87%AA%E8%B3%BC%E8%A8%8E%E8%AB%96.md) |
+| 帶著夥伴梳理自己.m4a | 復盤帶人領導 | 31分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081498bdbcc5083d8596c) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E5%B8%B6%E8%91%97%E5%A4%A5%E4%BC%B4%E6%A2%B3%E7%90%86%E8%87%AA%E5%B7%B1.md) |
+| Sky哥討論互動調整&討論.m4a | 復盤帶人領導 | 4分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a5a954e37d3e40c35a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_Sky%E5%93%A5%E8%A8%8E%E8%AB%96%E4%BA%92%E5%8B%95%E8%AA%BF%E6%95%B4_%E8%A8%8E%E8%AB%96.md) |
+| 彩蓉姐ABC前討論.m4a | 復盤帶人領導 | 21分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081269dc7e9ed6f454ff6) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E5%BD%A9%E8%93%89%E5%A7%90ABC%E5%89%8D%E8%A8%8E%E8%AB%96.md) |
+| 討論課程前中後.m4a | 復盤帶人領導 | 7分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081838facce07668a9771) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E8%A8%8E%E8%AB%96%E8%AA%B2%E7%A8%8B%E5%89%8D%E4%B8%AD%E5%BE%8C.md) |
 | 瑾嫺保養復盤.m4a | 案例復盤 | 12分 | 2026-06-19 | [Notion](https://www.notion.so/38423f49859081d29bd0cde932dfff6b) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_%E7%91%BE%E5%AB%BA%E4%BF%9D%E9%A4%8A%E5%BE%A9%E7%9B%A4.md) |
 | 312欣妤+小郭+約見2位新朋友.m4a | 案例復盤 | 20分 | 2026-06-19 | [Notion](https://www.notion.so/38423f4985908130a02ed116193ea085) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_312%E6%AC%A3%E5%A6%A4_%E5%B0%8F%E9%83%AD_%E7%B4%84%E8%A6%8B2%E4%BD%8D%E6%96%B0%E6%9C%8B%E5%8F%8B.md) |
 | 314宜馨與龜.m4a | 案例復盤 | 20分 | 2026-06-19 | [Notion](https://www.notion.so/38423f49859081179811d8b9d52c2cad) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_314%E5%AE%9C%E9%A6%A8%E8%88%87%E9%BE%9C.md) |
