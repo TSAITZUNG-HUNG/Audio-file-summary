@@ -1072,12 +1072,12 @@ def main():
             else:
                 break
         # ── 清除「tracker 有但 Notion 中找不到」的過期記錄，讓 bot 重新處理 ──
+        # 注意：同時清理真實 Drive ID 記錄 和 舊的 notion_sync_* 佔位符
         _stale_keys = [
             k for k, v in tracker.data.items()
-            if not k.startswith("notion_sync_")           # 只處理真實的 Drive ID 記錄
-            and not v.get("notion_page_inaccessible")     # 已知不可存取的不動
-            and v.get("file_name")                        # 有記錄檔名
+            if v.get("file_name")                         # 有記錄檔名
             and v["file_name"] not in _notion_filenames   # 但 Notion 中找不到
+            and not v.get("notion_page_inaccessible")     # 已知不可存取的不動
         ]
         if _stale_keys:
             for k in _stale_keys:
@@ -1226,12 +1226,12 @@ def main():
             else:
                 break
         # ── 清除「tracker 有但 Notion 中找不到」的過期記錄（硬碟B）──
+        # 注意：同時清理真實 Drive ID 記錄 和 舊的 notion_sync_* 佔位符
         _stale_keys_b = [
             k for k, v in tracker_b.data.items()
-            if not k.startswith("notion_sync_")
-            and not v.get("notion_page_inaccessible")
-            and v.get("file_name")
+            if v.get("file_name")
             and v["file_name"] not in _notion_b_filenames
+            and not v.get("notion_page_inaccessible")
         ]
         if _stale_keys_b:
             for k in _stale_keys_b:
