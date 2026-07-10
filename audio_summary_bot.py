@@ -1148,6 +1148,24 @@ def main():
                      and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
 
+    # ── DEBUG：診斷為何某些檔案未被偵測為「尚未處理」──────────────────────
+    if _notion_filenames:
+        _not_in_notion = [f["name"] for f in all_files if f["name"] not in _notion_filenames]
+        print(f"   🔍 DEBUG | Notion 實際頁數：{len(_notion_filenames)}，Drive 中不在 Notion 的：{len(_not_in_notion)} 個")
+        # 找重複檔名（不同資料夾放了同名檔案）
+        _all_drive_names = [f["name"] for f in all_files]
+        _dup_names = sorted(set(n for n in _all_drive_names if _all_drive_names.count(n) > 1))
+        if _dup_names:
+            print(f"   ⚠️  DEBUG | Drive 中有重複檔名（{len(_dup_names)} 個，這些可能被誤跳過）：")
+            for _dn in _dup_names:
+                print(f"         • {_dn}")
+        # 列出 Drive 有但 Notion 沒有的檔案
+        if _not_in_notion:
+            print(f"   📋 DEBUG | Drive 有但 Notion 沒有的檔案：")
+            for _fn in sorted(_not_in_notion):
+                print(f"         • {_fn}")
+    # ── END DEBUG ────────────────────────────────────────────────────────────
+
     # ── 資料夾移動偵測（硬碟A）──────────────────────────────────────────────
     print("\n🔄 偵測硬碟A 資料夾變動...")
     sync_folder_updates(all_files, tracker, drive, notion, drive_label="硬碟A")
