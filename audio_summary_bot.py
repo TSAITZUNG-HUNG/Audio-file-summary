@@ -1071,6 +1071,20 @@ def main():
                 _cursor   = _data.get("next_cursor")
             else:
                 break
+        # ── 清除「tracker 有但 Notion 中找不到」的過期記錄，讓 bot 重新處理 ──
+        _stale_keys = [
+            k for k, v in tracker.data.items()
+            if not k.startswith("notion_sync_")           # 只處理真實的 Drive ID 記錄
+            and not v.get("notion_page_inaccessible")     # 已知不可存取的不動
+            and v.get("file_name")                        # 有記錄檔名
+            and v["file_name"] not in _notion_filenames   # 但 Notion 中找不到
+        ]
+        if _stale_keys:
+            for k in _stale_keys:
+                del tracker.data[k]
+            tracker._save()
+            print(f"   ⚠️  清除 {len(_stale_keys)} 筆過期記錄（tracker 有但 Notion 找不到），將重新處理")
+
         # 把 Notion 已有的檔案名稱加入 tracker（用假 ID 標記為已處理）
         _synced = 0
         for _fname in _notion_filenames:
@@ -1211,6 +1225,20 @@ def main():
                 _cursor_b   = _data_b.get("next_cursor")
             else:
                 break
+        # ── 清除「tracker 有但 Notion 中找不到」的過期記錄（硬碟B）──
+        _stale_keys_b = [
+            k for k, v in tracker_b.data.items()
+            if not k.startswith("notion_sync_")
+            and not v.get("notion_page_inaccessible")
+            and v.get("file_name")
+            and v["file_name"] not in _notion_b_filenames
+        ]
+        if _stale_keys_b:
+            for k in _stale_keys_b:
+                del tracker_b.data[k]
+            tracker_b._save()
+            print(f"   ⚠️  清除 {len(_stale_keys_b)} 筆過期記錄（硬碟B tracker 有但 Notion 找不到），將重新處理")
+
         _synced_b = 0
         for _fname_b in _notion_b_filenames:
             _fake_id_b = f"notion_sync_{_fname_b}"
