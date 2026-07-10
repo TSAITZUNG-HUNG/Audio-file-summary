@@ -1078,13 +1078,13 @@ def main():
             k for k, v in tracker.data.items()
             if v.get("file_name")                         # 有記錄檔名
             and v["file_name"] not in _notion_filenames   # 但 Notion 中找不到
-            and not v.get("notion_page_inaccessible")     # 已知不可存取的不動
+            # notion_page_inaccessible 也要清除：Notion 是唯一真相，查不到就重新處理
         ]
         if _stale_keys:
             for k in _stale_keys:
                 del tracker.data[k]
             tracker._save()
-            print(f"   ⚠️  清除 {len(_stale_keys)} 筆過期記錄（tracker 有但 Notion 找不到），將重新處理")
+            print(f"   ⚠️  清除 {len(_stale_keys)} 筆過期記錄（含 inaccessible 標記），將重新處理")
 
         # 把 Notion 已有的檔案名稱加入 tracker（用假 ID 標記為已處理）
         _synced = 0
@@ -1131,17 +1131,9 @@ def main():
     # 以「是否在 Notion 現有清單中」作為主要判斷，比 tracker 更可靠
     # 只有 Notion 同步失敗（_notion_filenames 為空）才退回 tracker 邏輯
     if _notion_filenames:
-        def _needs_processing_a(f: dict) -> bool:
-            if f["name"] in _notion_filenames:
-                return False   # 已在 Notion，跳過
-            # 排除明確標記為不可存取的頁面
-            stem = Path(f["name"]).stem
-            for v in tracker.data.values():
-                fn = v.get("file_name", "")
-                if (fn == f["name"] or Path(fn).stem == stem) and v.get("notion_page_inaccessible"):
-                    return False
-            return True
-        new_files = [f for f in all_files if _needs_processing_a(f)]
+        # Notion 查詢結果是唯一真相：不在 Notion 裡的就是尚未處理
+        # 不再依賴 tracker 的 notion_page_inaccessible 標記（可能是過期舊記錄）
+        new_files = [f for f in all_files if f["name"] not in _notion_filenames]
     else:
         new_files = [f for f in all_files
                      if not tracker.is_processed(f["id"])
