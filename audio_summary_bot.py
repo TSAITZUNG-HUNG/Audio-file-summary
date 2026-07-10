@@ -1040,6 +1040,7 @@ def main():
 
     # ── 從 Notion 同步已處理的檔案名稱（防止快取遺失時重複處理）────────────
     print("🔄 從 Notion 同步已處理記錄...")
+    _notion_filenames: set = set()   # 初始化，確保 try 失敗時仍可用
     try:
         import requests as _req
         _headers = {
@@ -1127,9 +1128,24 @@ def main():
                 all_files.append(f)
         print(f"      → 找到 {len(found)} 個音檔")
 
-    new_files = [f for f in all_files
-                 if not tracker.is_processed(f["id"])
-                 and not tracker.is_filename_processed(f["name"])]
+    # 以「是否在 Notion 現有清單中」作為主要判斷，比 tracker 更可靠
+    # 只有 Notion 同步失敗（_notion_filenames 為空）才退回 tracker 邏輯
+    if _notion_filenames:
+        def _needs_processing_a(f: dict) -> bool:
+            if f["name"] in _notion_filenames:
+                return False   # 已在 Notion，跳過
+            # 排除明確標記為不可存取的頁面
+            stem = Path(f["name"]).stem
+            for v in tracker.data.values():
+                fn = v.get("file_name", "")
+                if (fn == f["name"] or Path(fn).stem == stem) and v.get("notion_page_inaccessible"):
+                    return False
+            return True
+        new_files = [f for f in all_files if _needs_processing_a(f)]
+    else:
+        new_files = [f for f in all_files
+                     if not tracker.is_processed(f["id"])
+                     and not tracker.is_filename_processed(f["name"])]
     print(f"\n   合計 {len(all_files)} 個音檔，{len(new_files)} 個尚未處理")
 
     # ── 資料夾移動偵測（硬碟A）──────────────────────────────────────────────
@@ -1267,18 +1283,38 @@ def main():
                 all_b_files.append(f)
         print(f"      → 找到 {len(found)} 個音檔")
 
-    # 過濾：已處理的 + 與硬碟A同名的直接跳過（不計入待處理）
+    # 過濾：以「是否在 Notion 現有清單中」作為主要判斷（比 tracker 更可靠）
     # 同時對「尚未處理的檔案」按檔名去重，避免同名不同 ID 的檔案在同一次 run 重複上傳
     _seen_new_b_names: set = set()
     new_b_files = []
     for f in all_b_files:
-        if (not tracker_b.is_processed(f["id"])
-                and not tracker_b.is_filename_processed(f["name"])
-                and not tracker.is_filename_processed(f["name"])  # tracker = 硬碟A
-                and f["name"] not in _seen_new_b_names):
+        # 若 Notion 同步成功，直接用 Notion 清單判斷
+        if _notion_b_filenames:
+            already_done = (
+                f["name"] in _notion_b_filenames          # 已在 Notion B
+                or f["name"] in _notion_filenames          # 與硬碟A同名（也在 Notion A）
+            )
+            # 排除明確標記為不可存取的頁面
+            if not already_done:
+                stem = Path(f["name"]).stem
+                for v in tracker_b.data.values():
+                    fn = v.get("file_name", "")
+                    if (fn == f["name"] or Path(fn).stem == stem) and v.get("notion_page_inaccessible"):
+                        already_done = True
+                        break
+        else:
+            # Notion 同步失敗，退回 tracker 邏輯
+            already_done = (tracker_b.is_processed(f["id"])
+                            or tracker_b.is_filename_processed(f["name"])
+                            or tracker.is_filename_processed(f["name"]))
+        if not already_done and f["name"] not in _seen_new_b_names:
             _seen_new_b_names.add(f["name"])
             new_b_files.append(f)
     same_name_count = sum(
+        1 for f in all_b_files
+        if f["name"] in _notion_filenames
+        and f["name"] not in _notion_b_filenames
+    ) if _notion_filenames else sum(
         1 for f in all_b_files
         if tracker.is_filename_processed(f["name"])
         and not tracker_b.is_processed(f["id"])
