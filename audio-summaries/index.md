@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-07-08 18:31:19
+> 最後更新：2026-07-10 03:08:36
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -42,14 +42,33 @@
 | 宜馨-跟蘿拉討論定位、目標.m4a |  | 0分 | synced_fro | [Notion]() |
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
-| 17跟Sky哥講為什麼要跟資深夥伴討論.m4a | 未知資料夾 | 1分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081ef877ccf8876a60e6a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_17%E8%B7%9FSky%E5%93%A5%E8%AC%9B%E7%82%BA%E4%BB%80%E9%BA%BC%E8%A6%81%E8%B7%9F%E8%B3%87%E6%B7%B1%E5%A4%A5%E4%BC%B4%E8%A8%8E%E8%AB%96.md) |
-| 20260622婷宇討論-17.m4a | 未知資料夾 | 81分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590815f8f7cf9da05e81ad4) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_20260622%E5%A9%B7%E5%AE%87%E8%A8%8E%E8%AB%96-17.md) |
+| 吉廷abc復盤2.m4a |  | 0分 | synced_fro | [Notion]() |
+| 保養怎麼簡單＆夥伴想借力其他Ａ＆沒有最愛產品.m4a | 復盤帶人領導 | 3分 | 2026-07-10 | [Notion](https://www.notion.so/39923f49859081a79ad8f98d939f28bf) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260710_%E4%BF%9D%E9%A4%8A%E6%80%8E%E9%BA%BC%E7%B0%A1%E5%96%AE_%E5%A4%A5%E4%BC%B4%E6%83%B3%E5%80%9F%E5%8A%9B%E5%85%B6%E4%BB%96%EF%BC%A1_%E6%B2%92%E6%9C%89%E6%9C%80%E6%84%9B%E7%94%A2%E5%93%81.md) |
+| 10_12 宜馨＆歸.m4a | 復盤帶人領導 | 34分 | 2026-07-10 | [Notion](https://www.notion.so/39923f49859081669827f4dc4588f9da) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260710_10_12_%E5%AE%9C%E9%A6%A8_%E6%AD%B8.md) |
+| 吉廷abc復盤1.m4a | 復盤帶人領導 | 18分 | 2026-07-09 | [Notion](https://www.notion.so/39823f498590812a8487e0ba29ff0de7) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%90%89%E5%BB%B7abc%E5%BE%A9%E7%9B%A41.md) |
+| B不想與人接觸＆什麼是目的性＆2-4人為何場次出不來.m4a | 復盤帶人領導 | 43分 | 2026-07-09 | [Notion](https://www.notion.so/39823f498590813dbed5d0036834680e) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_B%E4%B8%8D%E6%83%B3%E8%88%87%E4%BA%BA%E6%8E%A5%E8%A7%B8_%E4%BB%80%E9%BA%BC%E6%98%AF%E7%9B%AE%E7%9A%84%E6%80%A7_2-4%E4%BA%BA%E7%82%BA%E4%BD%95%E5%A0%B4%E6%AC%A1%E5%87%BA%E4%B8%8D%E4%BE%86.md) |
+| 夥伴事業定位＆推薦人會不會去ＱＡ.m4a | 復盤帶人領導 | 11分 | 2026-07-09 | [Notion](https://www.notion.so/39823f4985908115b230eb14a3491434) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%A4%A5%E4%BC%B4%E4%BA%8B%E6%A5%AD%E5%AE%9A%E4%BD%8D_%E6%8E%A8%E8%96%A6%E4%BA%BA%E6%9C%83%E4%B8%8D%E6%9C%83%E5%8E%BB%EF%BC%B1%EF%BC%A1.md) |
+| 對於有在做直銷的Ｃ如何應對.m4a | 復盤帶人領導 | 15分 | 2026-07-09 | [Notion](https://www.notion.so/39823f498590810c8933d198b5b19225) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%B0%8D%E6%96%BC%E6%9C%89%E5%9C%A8%E5%81%9A%E7%9B%B4%E9%8A%B7%E7%9A%84%EF%BC%A3%E5%A6%82%E4%BD%95%E6%87%89%E5%B0%8D.md) |
+| 大Ａ跟小Ａ是打配合，互補擅長地方.m4a | 復盤帶人領導 | 10分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081aaaa75c9ea731922af) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%A4%A7%EF%BC%A1%E8%B7%9F%E5%B0%8F%EF%BC%A1%E6%98%AF%E6%89%93%E9%85%8D%E5%90%88_%E4%BA%92%E8%A3%9C%E6%93%85%E9%95%B7%E5%9C%B0%E6%96%B9.md) |
+| 宜馨-ruby課後.m4a | 同桌討論實戰 | 76分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081b6a2dfe5b64c279c2b) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%AE%9C%E9%A6%A8-ruby%E8%AA%B2%E5%BE%8C.md) |
+| 跟B溝通累積經驗.m4a | 同桌討論實戰 | 1分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081a2a35fffcb6b1dd3f2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E8%B7%9FB%E6%BA%9D%E9%80%9A%E7%B4%AF%E7%A9%8D%E7%B6%93%E9%A9%97.md) |
+| Key單流程＆強Ｂ怎麼定義.m4a | 同桌討論實戰 | 19分 | 2026-07-09 | [Notion](https://www.notion.so/39823f4985908141ae2ef3cc77a491d9) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_Key%E5%96%AE%E6%B5%81%E7%A8%8B_%E5%BC%B7%EF%BC%A2%E6%80%8E%E9%BA%BC%E5%AE%9A%E7%BE%A9.md) |
+| 美安跟直銷的差異＆讓Ｂ理解什麼是分享.m4a | 同桌討論實戰 | 33分 | 2026-07-09 | [Notion](https://www.notion.so/39823f498590817eb9f0cc689d663cb9) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E7%BE%8E%E5%AE%89%E8%B7%9F%E7%9B%B4%E9%8A%B7%E7%9A%84%E5%B7%AE%E7%95%B0_%E8%AE%93%EF%BC%A2%E7%90%86%E8%A7%A3%E4%BB%80%E9%BA%BC%E6%98%AF%E5%88%86%E4%BA%AB.md) |
+| 2-4個視作思維＆家人的思維.m4a | 同桌討論實戰 | 27分 | 2026-07-09 | [Notion](https://www.notion.so/39823f4985908138a642ff3b8d125c7a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_2-4%E5%80%8B%E8%A6%96%E4%BD%9C%E6%80%9D%E7%B6%AD_%E5%AE%B6%E4%BA%BA%E7%9A%84%E6%80%9D%E7%B6%AD.md) |
+| 6-16采玹Abc後討論.m4a | ABC實戰 | 14分 | 2026-07-09 | [Notion](https://www.notion.so/39823f4985908180aa40dab3f8b29224) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_6-16%E9%87%87%E7%8E%B9Abc%E5%BE%8C%E8%A8%8E%E8%AB%96.md) |
+| 老師加盟，講清楚優勢以及進課程重要性.m4a | ABC實戰 | 19分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081d8be96ca008f5dbb61) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E8%80%81%E5%B8%AB%E5%8A%A0%E7%9B%9F_%E8%AC%9B%E6%B8%85%E6%A5%9A%E5%84%AA%E5%8B%A2%E4%BB%A5%E5%8F%8A%E9%80%B2%E8%AA%B2%E7%A8%8B%E9%87%8D%E8%A6%81%E6%80%A7.md) |
+| 遇到邀約身心靈課程朋友，宜馨怎麼看.m4a | 邀約互動 | 9分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081ddbfaeed0d1fc13fcc) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E9%81%87%E5%88%B0%E9%82%80%E7%B4%84%E8%BA%AB%E5%BF%83%E9%9D%88%E8%AA%B2%E7%A8%8B%E6%9C%8B%E5%8F%8B_%E5%AE%9C%E9%A6%A8%E6%80%8E%E9%BA%BC%E7%9C%8B.md) |
+| 解釋經驗累積重要性 ＆ 你想救的人對方不一定給救.m4a | 心態成長 | 28分 | 2026-07-09 | [Notion](https://www.notion.so/39823f49859081788475f665b54e5eb2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E8%A7%A3%E9%87%8B%E7%B6%93%E9%A9%97%E7%B4%AF%E7%A9%8D%E9%87%8D%E8%A6%81%E6%80%A7___%E4%BD%A0%E6%83%B3%E6%95%91%E7%9A%84%E4%BA%BA%E5%B0%8D%E6%96%B9%E4%B8%8D%E4%B8%80%E5%AE%9A%E7%B5%A6%E6%95%91.md) |
+| 對菜Ｂ講真話.m4a | 心態成長 | 25分 | 2026-07-09 | [Notion](https://www.notion.so/39823f498590814a877ad99622e98f97) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E5%B0%8D%E8%8F%9C%EF%BC%A2%E8%AC%9B%E7%9C%9F%E8%A9%B1.md) |
+| 互動建立關係＆善用AI.m4a | 心態成長 | 43分 | 2026-07-09 | [Notion](https://www.notion.so/39823f4985908180a8b4dce8f33d31ca) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260709_%E4%BA%92%E5%8B%95%E5%BB%BA%E7%AB%8B%E9%97%9C%E4%BF%82_%E5%96%84%E7%94%A8AI.md) |
+| 17跟Sky哥講為什麼要跟資深夥伴討論.m4a | 同桌討論實戰 | 1分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081ef877ccf8876a60e6a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_17%E8%B7%9FSky%E5%93%A5%E8%AC%9B%E7%82%BA%E4%BB%80%E9%BA%BC%E8%A6%81%E8%B7%9F%E8%B3%87%E6%B7%B1%E5%A4%A5%E4%BC%B4%E8%A8%8E%E8%AB%96.md) |
+| 20260622婷宇討論-17.m4a | 同桌討論實戰 | 81分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590815f8f7cf9da05e81ad4) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_20260622%E5%A9%B7%E5%AE%87%E8%A8%8E%E8%AB%96-17.md) |
 | 20260622玉書姐討論.m4a | 同桌討論實戰 | 99分 | 2026-07-08 | [Notion](https://www.notion.so/39723f4985908145bb1fe9e7c7ac7387) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_20260622%E7%8E%89%E6%9B%B8%E5%A7%90%E8%A8%8E%E8%AB%96.md) |
-| 6-27地研後明杰討論1.m4a | 未知資料夾 | 20分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a9ab59c5567dec65a2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_6-27%E5%9C%B0%E7%A0%94%E5%BE%8C%E6%98%8E%E6%9D%B0%E8%A8%8E%E8%AB%961.md) |
+| 6-27地研後明杰討論1.m4a | 同桌討論實戰 | 20分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a9ab59c5567dec65a2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_6-27%E5%9C%B0%E7%A0%94%E5%BE%8C%E6%98%8E%E6%9D%B0%E8%A8%8E%E8%AB%961.md) |
 | 6-27地研後明杰討論2.m4a | 同桌討論實戰 | 73分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081acbb6cf72ebc5e8dfe) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_6-27%E5%9C%B0%E7%A0%94%E5%BE%8C%E6%98%8E%E6%9D%B0%E8%A8%8E%E8%AB%962.md) |
-| 夥伴QA如何跟未加盟、新夥伴聊天.m4a | 未知資料夾 | 11分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590811b809be4ae516f2346) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E5%A4%A5%E4%BC%B4QA%E5%A6%82%E4%BD%95%E8%B7%9F%E6%9C%AA%E5%8A%A0%E7%9B%9F_%E6%96%B0%E5%A4%A5%E4%BC%B4%E8%81%8A%E5%A4%A9.md) |
-| 慧芳part1.m4a | 未知資料夾 | 37分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a99cdecdd20f30e40a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E6%85%A7%E8%8A%B3part1.md) |
-| 慧芳part3.m4a | 未知資料夾 | 39分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081abae2fe421e88d8c69) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E6%85%A7%E8%8A%B3part3.md) |
+| 夥伴QA如何跟未加盟、新夥伴聊天.m4a | 同桌討論實戰 | 11分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590811b809be4ae516f2346) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E5%A4%A5%E4%BC%B4QA%E5%A6%82%E4%BD%95%E8%B7%9F%E6%9C%AA%E5%8A%A0%E7%9B%9F_%E6%96%B0%E5%A4%A5%E4%BC%B4%E8%81%8A%E5%A4%A9.md) |
+| 慧芳part1.m4a | 同桌討論實戰 | 37分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a99cdecdd20f30e40a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E6%85%A7%E8%8A%B3part1.md) |
+| 慧芳part3.m4a | 同桌討論實戰 | 39分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081abae2fe421e88d8c69) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E6%85%A7%E8%8A%B3part3.md) |
 | 慧芳part2.m4a | 同桌討論實戰 | 45分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081a1887ad277093e7108) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E6%85%A7%E8%8A%B3part2.md) |
 | 阿堯智凱ABC復盤.m4a | ABC實戰 | 24分 | 2026-07-08 | [Notion](https://www.notion.so/39723f49859081bdb068ea8ec142cb5a) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E9%98%BF%E5%A0%AF%E6%99%BA%E5%87%B1ABC%E5%BE%A9%E7%9B%A4.md) |
 | 以好朋友立場講真心話＆心態正確遇到挫折才不會偏掉.m4a | 邀約互動 | 7分 | 2026-07-08 | [Notion](https://www.notion.so/39723f498590814081a8cba2264e54c0) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260708_%E4%BB%A5%E5%A5%BD%E6%9C%8B%E5%8F%8B%E7%AB%8B%E5%A0%B4%E8%AC%9B%E7%9C%9F%E5%BF%83%E8%A9%B1_%E5%BF%83%E6%85%8B%E6%AD%A3%E7%A2%BA%E9%81%87%E5%88%B0%E6%8C%AB%E6%8A%98%E6%89%8D%E4%B8%8D%E6%9C%83%E5%81%8F%E6%8E%89.md) |
@@ -80,11 +99,11 @@
 | 夥伴約C來聽夥伴商店ＡＢＣ.m4a | 復盤帶人領導 | 28分 | 2026-06-19 | [Notion](https://www.notion.so/38423f4985908148acc2d37bddb0c2fb) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_%E5%A4%A5%E4%BC%B4%E7%B4%84C%E4%BE%86%E8%81%BD%E5%A4%A5%E4%BC%B4%E5%95%86%E5%BA%97%EF%BC%A1%EF%BC%A2%EF%BC%A3.md) |
 | 會計較點數的人是想要的人 這時候給正確的創業心態.m4a | 復盤帶人領導 | 3分 | 2026-06-19 | [Notion](https://www.notion.so/38423f498590812fb3c9fe622c2c9233) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_%E6%9C%83%E8%A8%88%E8%BC%83%E9%BB%9E%E6%95%B8%E7%9A%84%E4%BA%BA%E6%98%AF%E6%83%B3%E8%A6%81%E7%9A%84%E4%BA%BA_%E9%80%99%E6%99%82%E5%80%99%E7%B5%A6%E6%AD%A3%E7%A2%BA%E7%9A%84%E5%89%B5%E6%A5%AD%E5%BF%83%E6%85%8B.md) |
 | 族群名單真正的用意.m4a | 復盤帶人領導 | 11分 | 2026-06-19 | [Notion](https://www.notion.so/38423f49859081c08305cf664dea0561) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260619_%E6%97%8F%E7%BE%A4%E5%90%8D%E5%96%AE%E7%9C%9F%E6%AD%A3%E7%9A%84%E7%94%A8%E6%84%8F.md) |
-| 17開箱藍色資料夾.m4a | 未知資料夾 | 4分 | 2026-06-04 | [Notion](https://www.notion.so/37523f498590816aa27be586b9e095cd) |
+| 17開箱藍色資料夾.m4a | 心態成長 | 4分 | 2026-06-04 | [Notion](https://www.notion.so/37523f498590816aa27be586b9e095cd) |
 | 240612柏澍abc-17+玟.m4a | 通話錄音群組 | 102分 | 2026-06-04 | [Notion](https://www.notion.so/37523f498590813a8c2fd47f0cd9b4f9) |
-| 20231015Nina、馬仲、Eva.m4a | 未知資料夾 | 51分 | 2026-06-04 | [Notion](https://www.notion.so/37523f4985908145a8f3e83b9f3fc366) |
-| 1-20梅姬名單討論@17.m4a | 未知資料夾 | 82分 | 2026-06-04 | [Notion](https://www.notion.so/37523f49859081038282c23cd071a604) |
-| 開箱前的惡補.m4a | 通話錄音群組 | 37分 | 2026-06-04 | [Notion](https://www.notion.so/37523f4985908112bea6f77ab36d8bea) |
+| 20231015Nina、馬仲、Eva.m4a | 心態成長 | 51分 | 2026-06-04 | [Notion](https://www.notion.so/37523f4985908145a8f3e83b9f3fc366) |
+| 1-20梅姬名單討論@17.m4a | 同桌討論實戰 | 82分 | 2026-06-04 | [Notion](https://www.notion.so/37523f49859081038282c23cd071a604) |
+| 開箱前的惡補.m4a | 心態成長 | 37分 | 2026-06-04 | [Notion](https://www.notion.so/37523f4985908112bea6f77ab36d8bea) |
 | Key單流程.m4a | 同桌討論實戰 | 24分 | 2026-06-03 | [Notion](https://www.notion.so/37423f498590811085f3d0c14f79b22a) |
 | 7-19聚會會前-提升能力（聽100遍）.m4a | 同桌討論實戰 | 27分 | 2026-06-03 | [Notion](https://www.notion.so/37423f4985908109bb1ef3e26ece842e) |
 | Sindy 2-4個試做討論.m4a | 同桌討論實戰 | 48分 | 2026-06-03 | [Notion](https://www.notion.so/37423f4985908120ada1f31e263080ae) |
@@ -129,7 +148,7 @@
 | 什麼是複製滾動＆領導者.m4a | 通話錄音群組 | 12分 | 2026-06-02 | [Notion](https://www.notion.so/37323f49859081349164cbd98d30fcf0) |
 | 加盟到現在有什麼想法.m4a | 未知資料夾 | 2分 | 2026-06-02 | [Notion](https://www.notion.so/37323f49859081748dbaf27598feec9f) |
 | IDM-AI線上課程.m4a | 自己的錄音檔 | 64分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590812db2dedab824d4ad97) |
-| 如何讓夥伴理解需要具備能力.m4a | 通話錄音群組 | 16分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590817f93f6f642707d489c) |
+| 如何讓夥伴理解需要具備能力.m4a | 復盤帶人領導 | 16分 | 2026-06-02 | [Notion](https://www.notion.so/37323f498590817f93f6f642707d489c) |
 | A、Ｂ、Ｃ關係.m4a | 通話錄音群組 | 3分 | 2026-06-01 | [Notion](https://www.notion.so/37223f49859081f3ad5eef738d7eb4ff) |
 | Joanne Hsi地研2.m4a | 課程錄音檔 | 45分 | 2026-06-01 | [Notion](https://www.notion.so/37223f4985908130b23bd6ce4e551408) |
 | 林孟涵地研4.m4a | 課程錄音檔 | 36分 | 2026-06-01 | [Notion](https://www.notion.so/37223f4985908190951ef90e9edfd2b2) |
@@ -176,4 +195,4 @@
 | 年會-徐宗睿-美安的沿革與趨勢.m4a | 未知資料夾 | 20分 | 2026-05-28 | [Notion](https://www.notion.so/36e23f4985908132a8f1cd7687821d53) |
 | 年會-鄭端儀-Ai賦能高效能發展美安事業.m4a | 未知資料夾 | 35分 | 2026-05-28 | [Notion](https://www.notion.so/36e23f498590813eab2bcd2a704622f1) |
 | 吳柏樺-通路發展.m4a | 未知資料夾 | 29分 | 2026-05-28 | [Notion](https://www.notion.so/36e23f498590810a841df0527a439986) |
-| 產品、通路、票討論.m4a | 通話錄音群組 | 25分 | 2026-05-27 | [Notion](https://www.notion.so/36d23f49859081a5a34fd84f28bebf03) |
+| 產品、通路、票討論.m4a | 復盤帶人領導 | 25分 | 2026-05-27 | [Notion](https://www.notion.so/36d23f49859081a5a34fd84f28bebf03) |
