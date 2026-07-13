@@ -905,6 +905,104 @@ def _fetch_drive_links(items: list) -> list:
     return items
 
 
+def _handle_folder_reply(user_id: str, reply_token: str, push_target: str, folder_name: str = ""):
+    """
+    /folder            → 列出所有資料夾名稱與各自檔案數
+    /folder 心態成長    → 只顯示該資料夾的錄音檔，支援後續編號選取
+    """
+    try:
+        summaries = fetch_all_summaries_cached()
+        if not summaries:
+            _reply(reply_token, "⚠️ 目前資料庫沒有錄音檔摘要。")
+            return
+
+        from collections import defaultdict
+        folder_map = defaultdict(list)
+        for s in summaries:
+            folder = s.get("folder", "").strip() or "未分類"
+            folder_map[folder].append(s)
+        sorted_folders = sorted(folder_map.keys(), key=lambda x: ("zzz" if x == "未分類" else x))
+
+        # ── 沒有指定資料夾：列出所有資料夾 ─────────────────────────────────
+        if not folder_name:
+            lines = ["📂 所有資料夾（輸入 /folder 資料夾名稱 可查看該資料夾內容）", ""]
+            for folder in sorted_folders:
+                lines.append(f"📁 {folder}（{len(folder_map[folder])} 個）")
+            lines.append("")
+            lines.append("💡 例如：/folder 心態成長")
+            _reply(reply_token, "\n".join(lines))
+            return
+
+        # ── 有指定資料夾：模糊比對（部分符合即可）────────────────────────────
+        matched_folder = None
+        # 先試精確匹配
+        for f in sorted_folders:
+            if f == folder_name:
+                matched_folder = f
+                break
+        # 再試部分匹配
+        if not matched_folder:
+            candidates = [f for f in sorted_folders if folder_name in f]
+            if len(candidates) == 1:
+                matched_folder = candidates[0]
+            elif len(candidates) > 1:
+                names = "、".join(candidates)
+                _reply(reply_token, f"找到多個符合的資料夾：{names}\n\n請輸入完整名稱，例如：/folder {candidates[0]}")
+                return
+
+        if not matched_folder:
+            folder_list = "\n".join(f"  • {f}" for f in sorted_folders)
+            _reply(reply_token, f"找不到資料夾「{folder_name}」。\n\n現有資料夾：\n{folder_list}")
+            return
+
+        # ── 組建該資料夾的清單 ───────────────────────────────────────────────
+        items_in_folder = folder_map[matched_folder]
+
+        # 計算 global_idx（在全體 summaries 中的位置，方便編號選取）
+        all_ordered = []
+        for fld in sorted_folders:
+            all_ordered.extend(folder_map[fld])
+        idx_map = {id(s): i + 1 for i, s in enumerate(all_ordered)}
+
+        _set_session(user_id, {"state": "listing", "items": all_ordered, "push_target": push_target})
+
+        header = f"📁 {matched_folder}（共 {len(items_in_folder)} 個錄音檔）"
+        lines = [header, ""]
+        for s in items_in_folder:
+            title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", s["title"]).strip()
+            dur = f"{s['duration_min']:.0f}分" if s["duration_min"] else ""
+            global_idx = idx_map.get(id(s), "?")
+            lines.append(f"{global_idx}. {title}　{dur}")
+        lines.append("")
+        lines.append("💡 輸入編號即可取得該錄音檔的 Google Drive 連結！\n（支援多個編號，如：1,3,5）")
+
+        # 超過 35 行切成多段
+        messages = []
+        current = []
+        for line in lines:
+            current.append(line)
+            if len(current) >= 35:
+                messages.append("\n".join(current).strip())
+                current = []
+        if current:
+            messages.append("\n".join(current).strip())
+
+        reply_msgs = [TextMessage(text=m) for m in messages[:5]]
+        with ApiClient(line_config) as api_client:
+            MessagingApi(api_client).reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=reply_msgs)
+            )
+        for m in messages[5:]:
+            _push(push_target, m)
+
+    except Exception as e:
+        print(f"[Folder] 錯誤：{e}")
+        try:
+            _reply(reply_token, f"❌ 載入資料夾清單時發生錯誤：{str(e)[:100]}")
+        except Exception:
+            _push(push_target, f"❌ 載入資料夾清單時發生錯誤：{str(e)[:100]}")
+
+
 def _bg_handle_question(user_id: str, reply_or_push_target: str, question: str,
                         exclude_ids: list = None, max_duration: float = None,
                         use_reply: bool = False):
@@ -1412,6 +1510,12 @@ def handle_message(event):
             _handle_search_reply(user_id, reply_token, push_target, keyword)
         else:
             _reply(reply_token, "請輸入搜尋關鍵字，例如：/search 溝通")
+        return
+
+    if text.startswith("/folder") or text.startswith("/資料夾"):
+        # 去掉指令前綴，取資料夾名稱
+        folder_name = re.sub(r"^/(folder|資料夾)\s*", "", text).strip()
+        _handle_folder_reply(user_id, reply_token, push_target, folder_name)
         return
 
     # ── 推薦後的快速指令 ──────────────────────────────────────────────────
