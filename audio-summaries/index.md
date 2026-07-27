@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-07-21 04:44:12
+> 最後更新：2026-07-27 13:24:12
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -23,8 +23,13 @@
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
 | 吉廷abc復盤2.m4a |  | 0分 | synced_fro | [Notion]() |
+| 7-22 個人-UFO班復盤.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f49859081ceaf47edd7035282f4) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_7-22_%E5%80%8B%E4%BA%BA-UFO%E7%8F%AD%E5%BE%A9%E7%9B%A4.md) |
+| 毓嫻討論與夾娃娃機朋友聊的方向.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f498590813881ebfffaafc6f103) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E6%AF%93%E5%AB%BB%E8%A8%8E%E8%AB%96%E8%88%87%E5%A4%BE%E5%A8%83%E5%A8%83%E6%A9%9F%E6%9C%8B%E5%8F%8B%E8%81%8A%E7%9A%84%E6%96%B9%E5%90%91.md) |
+| 討論小杏跟進.m4a | 未知資料夾 | 20分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f4985908113bb5fdd414599fa38) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E8%A8%8E%E8%AB%96%E5%B0%8F%E6%9D%8F%E8%B7%9F%E9%80%B2.md) |
+| 慧芳7.23討論.m4a | 復盤帶人領導 | 37分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f498590815d951fceb3327c63a8) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E6%85%A7%E8%8A%B37_23%E8%A8%8E%E8%AB%96.md) |
+| 7-26龜_17.m4a | 復盤帶人領導 | 28分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f4985908183bb6fed6e591c6ed5) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_7-26%E9%BE%9C_17.md) |
 | 年會-鄭端儀-Ai賦能高效能發展美安事業.m4a | GMTSS錄音 | 35分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f49859081a08e2bcc0ef176d365) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_%E5%B9%B4%E6%9C%83-%E9%84%AD%E7%AB%AF%E5%84%80-Ai%E8%B3%A6%E8%83%BD%E9%AB%98%E6%95%88%E8%83%BD%E7%99%BC%E5%B1%95%E7%BE%8E%E5%AE%89%E4%BA%8B%E6%A5%AD.md) |
-| 吳柏樺-通路發展.m4a | 未知資料夾 | 29分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f498590812eb140cec6d9deb2c2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_%E5%90%B3%E6%9F%8F%E6%A8%BA-%E9%80%9A%E8%B7%AF%E7%99%BC%E5%B1%95.md) |
+| 吳柏樺-通路發展.m4a | GMTSS錄音 | 29分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f498590812eb140cec6d9deb2c2) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_%E5%90%B3%E6%9F%8F%E6%A8%BA-%E9%80%9A%E8%B7%AF%E7%99%BC%E5%B1%95.md) |
 | 2026_5月年會 陳柏維 社群力量x事業倍增術_128k.mp3 | GMTSS錄音 | 39分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f49859081338a4cc43bfafbf61f) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_2026_5%E6%9C%88%E5%B9%B4%E6%9C%83_%E9%99%B3%E6%9F%8F%E7%B6%AD_%E7%A4%BE%E7%BE%A4%E5%8A%9B%E9%87%8Fx%E4%BA%8B%E6%A5%AD%E5%80%8D%E5%A2%9E%E8%A1%93_128k.md) |
 | 【錄音檔】地方研討會 Katherine凱姐_128k.mp3 | GMTSS錄音 | 261分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f4985908184a249fbf3e61f0c46) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721__%E9%8C%84%E9%9F%B3%E6%AA%94_%E5%9C%B0%E6%96%B9%E7%A0%94%E8%A8%8E%E6%9C%83_Katherine%E5%87%B1%E5%A7%90_128k.md) |
 | 在經營安麗朋友堅持要約他們leader的酒吧.m4a | 案例復盤 | 22分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f49859081b1a8d4c8f60f686466) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_%E5%9C%A8%E7%B6%93%E7%87%9F%E5%AE%89%E9%BA%97%E6%9C%8B%E5%8F%8B%E5%A0%85%E6%8C%81%E8%A6%81%E7%B4%84%E4%BB%96%E5%80%91leader%E7%9A%84%E9%85%92%E5%90%A7.md) |
