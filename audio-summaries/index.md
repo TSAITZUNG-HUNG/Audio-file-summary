@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-07-27 13:24:12
+> 最後更新：2026-07-29 04:03:12
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -23,9 +23,10 @@
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
 | 吉廷abc復盤2.m4a |  | 0分 | synced_fro | [Notion]() |
+| 效率_壓力_舒服.m4a | 復盤帶人領導 | 12分 | 2026-07-29 | [Notion](https://www.notion.so/3ac23f498590811c9613cea48eb7e63e) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260729_%E6%95%88%E7%8E%87_%E5%A3%93%E5%8A%9B_%E8%88%92%E6%9C%8D.md) |
 | 7-22 個人-UFO班復盤.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f49859081ceaf47edd7035282f4) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_7-22_%E5%80%8B%E4%BA%BA-UFO%E7%8F%AD%E5%BE%A9%E7%9B%A4.md) |
 | 毓嫻討論與夾娃娃機朋友聊的方向.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f498590813881ebfffaafc6f103) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E6%AF%93%E5%AB%BB%E8%A8%8E%E8%AB%96%E8%88%87%E5%A4%BE%E5%A8%83%E5%A8%83%E6%A9%9F%E6%9C%8B%E5%8F%8B%E8%81%8A%E7%9A%84%E6%96%B9%E5%90%91.md) |
-| 討論小杏跟進.m4a | 未知資料夾 | 20分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f4985908113bb5fdd414599fa38) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E8%A8%8E%E8%AB%96%E5%B0%8F%E6%9D%8F%E8%B7%9F%E9%80%B2.md) |
+| 討論小杏跟進.m4a | 復盤帶人領導 | 20分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f4985908113bb5fdd414599fa38) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E8%A8%8E%E8%AB%96%E5%B0%8F%E6%9D%8F%E8%B7%9F%E9%80%B2.md) |
 | 慧芳7.23討論.m4a | 復盤帶人領導 | 37分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f498590815d951fceb3327c63a8) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E6%85%A7%E8%8A%B37_23%E8%A8%8E%E8%AB%96.md) |
 | 7-26龜_17.m4a | 復盤帶人領導 | 28分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f4985908183bb6fed6e591c6ed5) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_7-26%E9%BE%9C_17.md) |
 | 年會-鄭端儀-Ai賦能高效能發展美安事業.m4a | GMTSS錄音 | 35分 | 2026-07-21 | [Notion](https://www.notion.so/3a423f49859081a08e2bcc0ef176d365) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260721_%E5%B9%B4%E6%9C%83-%E9%84%AD%E7%AB%AF%E5%84%80-Ai%E8%B3%A6%E8%83%BD%E9%AB%98%E6%95%88%E8%83%BD%E7%99%BC%E5%B1%95%E7%BE%8E%E5%AE%89%E4%BA%8B%E6%A5%AD.md) |
