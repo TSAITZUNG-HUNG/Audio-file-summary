@@ -618,11 +618,7 @@ def format_recommendations(items: list, question: str) -> str:
         dur   = f"{item['duration_min']:.0f}分鐘" if item["duration_min"] else ""
         title = re.sub(r"\s*—\s*\d{4}/\d{2}/\d{2}$", "", item["title"]).strip()
         drive_link = item.get("drive_link", "")
-        notion_url = item.get("notion_url", "")
-        block = (
-            f"{_CIRCLE[i]} {title}　⏱ {dur}\n"
-            f"📖 摘要：{notion_url}\n"
-        )
+        block = f"{_CIRCLE[i]} {title}　⏱ {dur}\n"
         if drive_link:
             block += f"📥 音檔：{drive_link}\n"
         lines.append(block)
@@ -1448,8 +1444,6 @@ def handle_message(event):
             "📋 指令：\n"
             "・/list — 列出所有錄音檔\n"
             "・/list 關鍵字 — 搜尋錄音檔名稱\n"
-            "・/folder — 依資料夾瀏覽錄音檔\n"
-            "・/search 關鍵字 — 關鍵字搜尋\n"
             "・使用手冊 — 完整功能說明\n"
             "・取消 — 重新開始"
         )
@@ -1481,16 +1475,8 @@ def handle_message(event):
             "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
             "輸入編號取得音檔連結（支援多選：1,3,5）。\n\n"
             "══════════════════════\n\n"
-            "📂 功能四：依資料夾瀏覽\n"
-            "輸入 /folder 列出所有資料夾名稱與各自檔案數。\n"
-            "輸入 /folder 資料夾名稱 顯示該資料夾內所有錄音檔。\n"
-            "輸入編號取得音檔連結（支援多選：1,3,5）。\n\n"
-            "範例：\n"
-            "・/folder → 顯示所有資料夾\n"
-            "・/folder 心態成長 → 只看心態成長的錄音\n"
-            "・/資料夾 同桌討論 → 中文指令也可以\n\n"
             "══════════════════════\n\n"
-            "📖 功能五：美安規章查詢\n"
+            "📖 功能四：美安規章查詢\n"
             "輸入 /美安規章 問題，Bot 從《超連鎖手冊》找答案，不消耗 AI 額度。\n\n"
             "範例：\n"
             "・/美安規章 退貨流程是什麼？\n"
