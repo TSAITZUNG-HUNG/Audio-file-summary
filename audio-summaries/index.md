@@ -1,6 +1,6 @@
 # 🎙️ 錄音檔摘要索引
 
-> 最後更新：2026-07-29 04:03:12
+> 最後更新：2026-08-12 03:28:29
 
 | 檔案名稱 | 資料夾 | 時長 | 處理日期 | 連結 |
 |---------|-------|------|---------|------|
@@ -23,6 +23,7 @@
 | Alice互動轉邀約復盤.m4a |  | 0分 | synced_fro | [Notion]() |
 | 17與33討論.m4a |  | 0分 | synced_fro | [Notion]() |
 | 吉廷abc復盤2.m4a |  | 0分 | synced_fro | [Notion]() |
+| 8-3有目標才有渴望.m4a | 復盤帶人領導 | 17分 | 2026-08-12 | [Notion](https://www.notion.so/3ba23f498590818aabbacc8c8419c2dc) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260812_8-3%E6%9C%89%E7%9B%AE%E6%A8%99%E6%89%8D%E6%9C%89%E6%B8%B4%E6%9C%9B.md) |
 | 效率_壓力_舒服.m4a | 復盤帶人領導 | 12分 | 2026-07-29 | [Notion](https://www.notion.so/3ac23f498590811c9613cea48eb7e63e) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260729_%E6%95%88%E7%8E%87_%E5%A3%93%E5%8A%9B_%E8%88%92%E6%9C%8D.md) |
 | 7-22 個人-UFO班復盤.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f49859081ceaf47edd7035282f4) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_7-22_%E5%80%8B%E4%BA%BA-UFO%E7%8F%AD%E5%BE%A9%E7%9B%A4.md) |
 | 毓嫻討論與夾娃娃機朋友聊的方向.m4a | 案例復盤 | 16分 | 2026-07-27 | [Notion](https://www.notion.so/3aa23f498590813881ebfffaafc6f103) ｜ [MD](https://github.com/TSAITZUNG-HUNG/Audio-file-summary/blob/main/audio-summaries/20260727_%E6%AF%93%E5%AB%BB%E8%A8%8E%E8%AB%96%E8%88%87%E5%A4%BE%E5%A8%83%E5%A8%83%E6%A9%9F%E6%9C%8B%E5%8F%8B%E8%81%8A%E7%9A%84%E6%96%B9%E5%90%91.md) |
