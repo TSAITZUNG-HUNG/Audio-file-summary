@@ -255,6 +255,10 @@ def _set_session(user_id: str, data: dict):
 def _clear_session(user_id: str):
     _sessions.pop(user_id, None)
 
+# 只接受「純編號」輸入（2 / 1,3 / 1 3 5 / 1、3），避免「再推薦5個」這種
+# 含數字的快速指令被誤判成選編號。
+_NUM_PICK = re.compile(r"^\s*\d+(?:[\s,，、]+\d+)*\s*$")
+
 
 # ════════════════════════════════════════════════════════════════════════════════
 # 美安手冊搜尋（完全免費，不呼叫任何 AI API）
@@ -708,6 +712,7 @@ def format_recommendations(items: list, question: str) -> str:
         if drive_link:
             block += f"📥 音檔：{drive_link}\n"
         lines.append(block)
+    lines.append("💡 想看重點摘要，回覆編號即可（例如：1 或 1,3）")
     return "\n".join(lines)
 
 
@@ -1143,6 +1148,7 @@ def _bg_handle_question(user_id: str, reply_or_push_target: str, question: str,
         _set_session(user_id, {
             "state": "post_recommendation",
             "question": question,
+            "items": items,          # 供「回編號取得 Notion 完整摘要」使用
             "shown_ids": all_shown,
             "push_target": reply_or_push_target if not use_reply else "",
         })
@@ -1489,23 +1495,31 @@ def handle_message(event):
 
     session = _get_session(user_id)
 
-    # ── 使用者選擇推薦編號（1-5，支援多選）────────────────────────────────
-    if session.get("state") == "selecting" and re.search(r"[1-5]", text):
-        nums = re.findall(r"[1-5]", text)
+    # ── 推薦後回編號取得 Notion 完整摘要（支援多選）────────────────────────
+    # 注意：狀態是 post_recommendation（舊版寫 "selecting"，該狀態已無人設定，
+    #       導致回編號完全失效，訊息會被當成新問題重跑一次推薦）。
+    if session.get("state") == "post_recommendation" and _NUM_PICK.match(text):
         items = session.get("items", [])
-        indices = list(dict.fromkeys([int(n) - 1 for n in nums]))
-
-        if not indices:
-            _reply(reply_token, "請輸入 1～5 之間的數字選擇錄音檔。")
+        if not items:
+            _clear_session(user_id)
+            _reply(reply_token, "這批推薦已經過期了，請重新輸入你的問題。")
             return
 
-        _clear_session(user_id)
-        # 同步取得 Drive 連結，使用免費 reply（不消耗月額度）
+        nums    = re.findall(r"\d+", text)
+        indices = list(dict.fromkeys(
+            [int(n) - 1 for n in nums if 1 <= int(n) <= len(items)]))
+
+        if not indices:
+            _reply(reply_token, f"請輸入 1～{len(items)} 之間的數字。")
+            return
+
+        # 保留 session：選完還能繼續選別的編號，或接「再推薦5個」「太長了」
+        _set_session(user_id, session)
         _handle_selection_reply(reply_token, push_target, indices, items)
         return
 
-    # ── 使用者從 /list 輸入編號取得 Drive 連結（支援多選）────────────────
-    if session.get("state") == "listing" and re.search(r"\d", text):
+    # ── 使用者從 /list、/folder 輸入編號取得連結（支援多選）────────────────
+    if session.get("state") == "listing" and _NUM_PICK.match(text):
         nums = re.findall(r"\d+", text)
         items = session.get("items", [])
         indices = [int(n) - 1 for n in nums if 1 <= int(n) <= len(items)]
@@ -1533,11 +1547,15 @@ def handle_message(event):
             "・「我不知道怎麼分享產品給朋友」\n"
             "・「推薦我跟業績提升相關的錄音」\n"
             "・「我想學如何管理時間」\n\n"
-            "AI 會從資料庫中推薦 5 個最適合的錄音檔，\n"
-            "回覆數字 1～5 即可取得播放連結。\n\n"
+            "AI 會推薦 5 個最適合的錄音檔，\n"
+            "每一個都直接附上音檔連結，點了就能聽。\n"
+            "想看重點摘要，回覆編號即可（例如：1 或 1,3）。\n\n"
             "📋 指令：\n"
+            "・/search 關鍵字 — 直接搜尋（附摘要與音檔）\n"
             "・/list — 列出所有錄音檔\n"
-            "・/list 關鍵字 — 搜尋錄音檔名稱\n"
+            "・/list 關鍵字 — 只列出檔名含關鍵字的\n"
+            "・/folder — 依資料夾瀏覽\n"
+            "・/美安規章 問題 — 查《超連鎖手冊》\n"
             "・使用手冊 — 完整功能說明\n"
             "・取消 — 重新開始"
         )
@@ -1548,11 +1566,12 @@ def handle_message(event):
             "🎙️ 錄音檔推薦機器人 使用手冊\n"
             "══════════════════════\n\n"
             "📖 這個機器人是做什麼的？\n"
-            "從錄音檔資料庫中，根據你的問題或需求，用 AI 智慧推薦最適合的錄音檔，並直接提供 Notion 摘要頁面與 Google Drive 播放連結。\n\n"
+            "從錄音檔資料庫中，根據你的問題或需求，用 AI 推薦最適合的錄音檔，直接給你 Google Drive 播放連結；需要重點摘要時，再回覆編號取得 Notion 摘要頁面。\n\n"
             "══════════════════════\n\n"
-            "📌 功能一：AI 推薦\n"
-            "直接輸入你的問題或需求，Bot 自動推薦 5 個最相關的錄音檔，並附上摘要連結與音檔連結。\n\n"
-            "推薦後還可以輸入：\n"
+            "📌 功能一：AI 推薦（最常用）\n"
+            "直接輸入你的問題或需求，不用記指令。\n"
+            "Bot 會推薦 5 個最相關的錄音檔，每一個都直接附上音檔連結。\n\n"
+            "想看重點摘要 → 回覆編號（例如 1 或 1,3）\n"
             "・再推薦5個 → 換一批新推薦\n"
             "・太長了 → 只推薦 30 分鐘以內的\n\n"
             "範例問題：\n"
@@ -1560,25 +1579,36 @@ def handle_message(event):
             "・推薦跟業績提升相關的錄音\n\n"
             "══════════════════════\n\n"
             "🔍 功能二：關鍵字搜尋\n"
-            "輸入 /search 關鍵字 直接搜尋錄音檔。\n\n"
+            "輸入 /search 關鍵字，直接列出最多 10 筆，\n"
+            "摘要連結與音檔連結一次給你（不必再回編號）。\n\n"
             "範例：\n"
             "・/search 溝通\n"
             "・/search ABC\n\n"
             "══════════════════════\n\n"
             "📋 功能三：列出清單\n"
             "輸入 /list 列出所有錄音檔（依資料夾分類）。\n"
-            "輸入編號取得音檔連結（支援多選：1,3,5）。\n\n"
+            "輸入 /list 關鍵字 只列出檔名含該關鍵字的。\n"
+            "再輸入編號即可取得音檔與摘要連結（支援多選：1,3,5）。\n\n"
             "══════════════════════\n\n"
+            "📂 功能四：依資料夾瀏覽\n"
+            "輸入 /folder 列出所有資料夾與各自的檔案數。\n"
+            "輸入 /folder 資料夾名 只看該資料夾（名稱打一半也找得到）。\n"
+            "再輸入編號即可取得連結。\n\n"
+            "範例：/folder 心態成長\n\n"
             "══════════════════════\n\n"
-            "📖 功能四：美安規章查詢\n"
+            "📖 功能五：美安規章查詢\n"
             "輸入 /美安規章 問題，Bot 從《超連鎖手冊》找答案，不消耗 AI 額度。\n\n"
             "範例：\n"
             "・/美安規章 退貨流程是什麼？\n"
             "・/美安規章 MPCP 怎麼計算？\n"
             "・/美安規章 優惠顧客計畫\n\n"
+            "══════════════════════\n\n"
             "🔤 其他指令\n"
+            "・說明 — 簡短版說明\n"
             "・使用手冊 — 顯示此說明\n"
             "・取消 — 取消目前操作\n\n"
+            "⏱ 清單與推薦的編號選取有 10 分鐘時效，\n"
+            "　 逾時再輸入編號會被當成新問題。\n\n"
             "💡 群組中請先 @ 機器人再輸入指令"
         )
         return
