@@ -71,7 +71,8 @@ BOT_PASSWORD = os.environ.get("BOT_PASSWORD", "")
 # 授權名單存在 GitHub repo 的 line_bot/authorized_users.json
 # 每次有人通過密碼就自動寫回去，重新部署也不會遺失
 _GH_TOKEN  = os.environ.get("SUMMARY_GITHUB_TOKEN", "") or os.environ.get("GITHUB_TOKEN", "")
-_GH_REPO   = os.environ.get("GITHUB_REPO", "")        # 例如 "yourname/Audio-file-summary"
+_GH_REPO   = os.environ.get("GITHUB_REPO", "") or "TSAITZUNG-HUNG/Audio-file-summary"
+# ↑ 沒設 GITHUB_REPO 時退回本專案，避免因少設一個環境變數就完全無法持久化
 _GH_BRANCH = os.environ.get("GITHUB_BRANCH", "main")
 _GH_AUTH_PATH = "line_bot/authorized_users.json"       # repo 內的路徑
 
@@ -79,78 +80,163 @@ def _pw_hash(pw: str) -> str:
     import hashlib
     return hashlib.sha256(pw.encode()).hexdigest()[:16]
 
+# 授權名單的健康狀態，透過 /health 端點查看，方便排查「密碼一直被要求重輸」
+_auth_diag = {
+    "github_token_set": bool(_GH_TOKEN),
+    "github_repo":      _GH_REPO,
+    "github_branch":    _GH_BRANCH,
+    "password_enabled": bool(BOT_PASSWORD),
+    "password_hash":    _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else "",
+    "load_source":      "",   # github / tmp / empty
+    "load_count":       0,
+    "load_error":       "",
+    "last_save":        "(尚未寫入)",
+    "last_save_count":  0,
+    "reload_count":     0,
+}
+
 def _gh_headers() -> dict:
     return {"Authorization": f"token {_GH_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 
+def _fetch_remote_auth() -> tuple:
+    """回傳 (users_set, sha, error_str)。讀不到就回 (None, "", 原因)"""
+    if not (_GH_TOKEN and _GH_REPO):
+        return None, "", "缺少 GITHUB token（SUMMARY_GITHUB_TOKEN 或 GITHUB_TOKEN）"
+    try:
+        import base64
+        url = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}?ref={_GH_BRANCH}"
+        resp = req_lib.get(url, headers=_gh_headers(), timeout=10)
+        if resp.status_code != 200:
+            return None, "", f"GitHub 回應 {resp.status_code}"
+        body = resp.json()
+        sha  = body.get("sha", "")
+        data = json.loads(base64.b64decode(body["content"]).decode())
+        stored_hash  = data.get("pw_hash", "")
+        current_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
+        if stored_hash != current_hash:
+            # 密碼換過了，舊名單一律作廢（但 sha 要留著才能覆寫）
+            return set(), sha, "密碼已變更，舊名單作廢"
+        return set(data.get("users", [])), sha, ""
+    except Exception as e:
+        return None, "", f"{type(e).__name__}: {e}"
+
+
 def _load_authorized_users() -> set:
     """從 GitHub 讀取授權名單；若密碼已變更自動清除"""
-    # 先嘗試從 GitHub 讀取
-    if _GH_TOKEN and _GH_REPO:
-        try:
-            url = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}?ref={_GH_BRANCH}"
-            resp = req_lib.get(url, headers=_gh_headers(), timeout=10)
-            if resp.status_code == 200:
-                import base64
-                content = base64.b64decode(resp.json()["content"]).decode()
-                data = json.loads(content)
-                stored_hash = data.get("pw_hash", "")
-                current_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
-                if stored_hash != current_hash:
-                    print("[Auth] 密碼已變更，清除所有舊授權名單")
-                    return set()
-                users = set(data.get("users", []))
-                print(f"[Auth] 從 GitHub 讀取 {len(users)} 個已授權使用者")
-                return users
-        except Exception as e:
-            print(f"[Auth] 從 GitHub 讀取失敗：{e}")
+    users, _sha, err = _fetch_remote_auth()
+    if users is not None:
+        _auth_diag["load_source"] = "github"
+        _auth_diag["load_count"]  = len(users)
+        _auth_diag["load_error"]  = err
+        print(f"[Auth] 從 GitHub 讀取 {len(users)} 個已授權使用者" + (f"（{err}）" if err else ""))
+        return users
+
+    _auth_diag["load_error"] = err
+    print(f"[Auth] 從 GitHub 讀取失敗：{err}")
+
     # 備援：從本地 /tmp 讀取（同一次部署期間有效）
     try:
         _AUTH_FILE = "/tmp/authorized_users.json"
         if os.path.exists(_AUTH_FILE):
             with open(_AUTH_FILE, "r") as f:
                 data = json.load(f)
-            return set(data.get("users", []))
+            if data.get("pw_hash", "") == (_pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""):
+                users = set(data.get("users", []))
+                _auth_diag["load_source"] = "tmp"
+                _auth_diag["load_count"]  = len(users)
+                print(f"[Auth] 從 /tmp 讀取 {len(users)} 個已授權使用者")
+                return users
     except Exception:
         pass
+
+    _auth_diag["load_source"] = "empty"
+    _auth_diag["load_count"]  = 0
     return set()
 
+
 def _save_authorized_users(users: set):
-    """同時寫回 GitHub（永久）與 /tmp（快取）"""
-    payload = {
-        "pw_hash": _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else "",
-        "users": list(users),
-    }
+    """同時寫回 GitHub（永久）與 /tmp（快取）
+
+    重點：寫回前先讀一次遠端並【聯集】，不再用記憶體整份覆蓋。
+    否則只要冷啟動那次讀取失敗，下一個通過密碼的人就會把全體名單洗掉。
+    """
+    pw_hash = _pw_hash(BOT_PASSWORD) if BOT_PASSWORD else ""
+
     # 寫入本地快取
     try:
         with open("/tmp/authorized_users.json", "w") as f:
-            json.dump(payload, f)
+            json.dump({"pw_hash": pw_hash, "users": list(users)}, f)
     except Exception:
         pass
-    # 寫回 GitHub（非同步，不阻塞 LINE 回覆）
+
     if not (_GH_TOKEN and _GH_REPO):
+        _auth_diag["last_save"] = "skipped：缺少 GITHUB token，授權只存在記憶體，重啟即失效"
+        print(f"[Auth] ⚠️ {_auth_diag['last_save']}")
         return
+
     def _push():
         try:
             import base64
-            url = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}"
-            # 先取得現有檔案的 sha（更新需要）
-            r = req_lib.get(url, headers=_gh_headers(), timeout=10)
-            sha = r.json().get("sha", "") if r.status_code == 200 else ""
+            remote_users, sha, err = _fetch_remote_auth()
+            merged = set(users) | (remote_users or set())
+
+            url  = f"https://api.github.com/repos/{_GH_REPO}/contents/{_GH_AUTH_PATH}"
+            if not sha:
+                r = req_lib.get(f"{url}?ref={_GH_BRANCH}", headers=_gh_headers(), timeout=10)
+                sha = r.json().get("sha", "") if r.status_code == 200 else ""
+
+            payload = {"pw_hash": pw_hash, "users": sorted(merged)}
             body = {
                 "message": "chore: update authorized users",
-                "content": base64.b64encode(json.dumps(payload, ensure_ascii=False).encode()).decode(),
+                "content": base64.b64encode(
+                    json.dumps(payload, ensure_ascii=False).encode()).decode(),
                 "branch": _GH_BRANCH,
             }
             if sha:
                 body["sha"] = sha
-            req_lib.put(url, headers=_gh_headers(), json=body, timeout=10)
-            print(f"[Auth] 已將授權名單寫回 GitHub（{len(users)} 人）")
+            resp = req_lib.put(url, headers=_gh_headers(), json=body, timeout=10)
+            if resp.status_code in (200, 201):
+                _authorized_users.update(merged)
+                _auth_diag["last_save"]       = "ok"
+                _auth_diag["last_save_count"] = len(merged)
+                print(f"[Auth] 已將授權名單寫回 GitHub（{len(merged)} 人）")
+            else:
+                _auth_diag["last_save"] = f"GitHub 回應 {resp.status_code}：{resp.text[:120]}"
+                print(f"[Auth] ⚠️ 寫回 GitHub 失敗：{_auth_diag['last_save']}")
         except Exception as e:
-            print(f"[Auth] 寫回 GitHub 失敗：{e}")
+            _auth_diag["last_save"] = f"{type(e).__name__}: {e}"
+            print(f"[Auth] ⚠️ 寫回 GitHub 失敗：{e}")
+
     threading.Thread(target=_push, daemon=True).start()
+
+
 
 _authorized_users: set = _load_authorized_users()
 print(f"[Auth] 共 {len(_authorized_users)} 個已授權使用者")
+
+# 冷啟動時若 GitHub 剛好讀不到，名單會是空的，導致所有人被要求重打密碼。
+# 因此在「使用者不在名單」時再重讀一次遠端（最多每 60 秒一次，避免打爆 API）。
+_last_auth_reload = datetime.min
+
+def _maybe_reload_authorized(user_id: str) -> bool:
+    """回傳 user_id 是否在（可能剛更新過的）授權名單中"""
+    global _last_auth_reload, _authorized_users
+    if user_id in _authorized_users:
+        return True
+    if datetime.now() - _last_auth_reload < timedelta(seconds=60):
+        return False
+    _last_auth_reload = datetime.now()
+    remote, _sha, err = _fetch_remote_auth()
+    _auth_diag["reload_count"] += 1
+    if remote is None:
+        _auth_diag["load_error"] = err
+        return False
+    _authorized_users |= remote
+    _auth_diag["load_source"] = "github"
+    _auth_diag["load_count"]  = len(_authorized_users)
+    _auth_diag["load_error"]  = err
+    print(f"[Auth] 重新讀取授權名單，目前 {len(_authorized_users)} 人")
+    return user_id in _authorized_users
 
 # ── In-memory Session ────────────────────────────────────────────────────────
 _sessions: dict = {}
@@ -1320,7 +1406,15 @@ def webhook():
 
 @app.route("/health", methods=["GET"])
 def health():
-    return {"status": "ok", "sessions": len(_sessions)}, 200
+    """健康檢查 + 授權名單診斷（只回布林值與計數，不吐任何金鑰內容）"""
+    return {
+        "status":   "ok",
+        "sessions": len(_sessions),
+        "auth": {
+            "authorized_now": len(_authorized_users),
+            **_auth_diag,
+        },
+    }, 200
 
 
 @handler.add(JoinEvent)
@@ -1378,7 +1472,7 @@ def handle_message(event):
 
     # ── 通關密碼驗證 ──────────────────────────────────────────────────────
     if BOT_PASSWORD:
-        if user_id not in _authorized_users:
+        if not _maybe_reload_authorized(user_id):
             if text == BOT_PASSWORD:
                 _authorized_users.add(user_id)
                 _save_authorized_users(_authorized_users)  # 存檔，重啟後記得
