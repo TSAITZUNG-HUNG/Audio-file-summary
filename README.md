@@ -162,6 +162,70 @@ GitHub repo（Markdown 備份 + 自動更新索引）
 
 ---
 
+## 🤖 LINE 推薦機器人（`line_bot/`）
+
+這是**另一支獨立的程式**，跟上面那支跑在 GitHub Actions 的摘要機器人分開部署。
+它讀取 Notion 上的摘要資料庫，讓夥伴在 LINE 裡用自然語言找錄音檔。
+
+部署方式：Render（或任何 PaaS）指向 `line_bot/`，用 `Procfile` 啟動。
+
+### 環境變數
+
+完整範本見 [`line_bot/.env.example`](line_bot/.env.example)。
+**這份清單跟根目錄的 `.env.example` 不同，兩者不可混用。**
+
+| 變數 | 必填 | 說明 |
+|---|:---:|---|
+| `LINE_CHANNEL_SECRET` | ✅ | LINE Developers Console 取得 |
+| `LINE_CHANNEL_ACCESS_TOKEN` | ✅ | 同上 |
+| `GROQ_API_KEY` | ✅ | 可用逗號分隔多把金鑰，自動輪換 |
+| `GROQ_MODEL` | | 預設 `llama-3.3-70b-versatile` |
+| `NOTION_TOKEN` | ✅ | |
+| `NOTION_DATABASE_ID` | ✅ | 錄音檔摘要資料庫 |
+| `NOTION_DATABASE_B_ID` | | 第二個資料庫，管理員「雙硬碟模式」才用到 |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | ✅ | PaaS 上請貼整份 JSON 內容 |
+| `GOOGLE_SERVICE_ACCOUNT_FILE` | | 本機開發用的金鑰檔路徑 |
+| `BOT_PASSWORD` | | 通關密碼。留空 = 任何人加好友就能用 |
+| `SUMMARY_GITHUB_TOKEN` | ⚠️ | **設了 `BOT_PASSWORD` 就必填**，見下方說明 |
+| `GITHUB_REPO` | | 授權名單存放的 repo，未設時用本專案 |
+| `GITHUB_BRANCH` | | 預設 `main` |
+
+### ⚠️ 關於通關密碼與授權名單
+
+通過密碼的使用者會被記進 `line_bot/authorized_users.json`，
+**寫回這個檔案需要 `SUMMARY_GITHUB_TOKEN`（需 repo 寫入權限）**。
+
+沒設 token 的話，授權名單只存在記憶體 —— 服務休眠或重新部署後就消失，
+所有夥伴都要重打一次密碼。這是最容易漏掉、也最常被誤判成「機器人壞了」的設定。
+
+另外：**改動 `BOT_PASSWORD` 會讓整份名單作廢**，所有人都需要重新輸入一次新密碼。
+
+### 檢查設定是否正確
+
+部署完成後，用瀏覽器打開服務的 `/health`：
+
+```
+https://你的服務名稱.onrender.com/health
+```
+
+```jsonc
+{
+  "status": "ok",
+  "auth": {
+    "authorized_now": 12,          // 目前記得幾個人
+    "github_token_set": true,      // ← false 代表授權會掉，要補 token
+    "github_repo": "TSAITZUNG-HUNG/Audio-file-summary",
+    "load_source": "github",       // github / tmp / empty
+    "load_error": "",
+    "last_save": "ok"
+  }
+}
+```
+
+只回傳布林值與計數，不含任何金鑰內容。
+
+---
+
 ## 常見問題
 
 **Q：Public repo 的程式碼會被看到，安全嗎？**
@@ -194,4 +258,15 @@ processed_files.json           # 已處理記錄（自動產生）
 .github/
   workflows/
     schedule.yml               # GitHub Actions 排程
+    cleanup_notion.yml         # Notion 日期清理排程
+audio-summaries/               # 產出的 Markdown 摘要（自動更新）
+  index.md                     # 全部摘要的索引
+
+line_bot/                      # 🤖 LINE 推薦機器人（獨立部署）
+  app.py                       # 主程式（Flask webhook）
+  .env.example                 # LINE Bot 專用設定範本
+  authorized_users.json        # 通關密碼授權名單（程式自動寫回）
+  ma_manual.json               # 《超連鎖商店手冊》查詢資料
+  requirements.txt             # LINE Bot 套件
+  Procfile                     # PaaS 啟動指令
 ```
